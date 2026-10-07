@@ -93,18 +93,28 @@ function findChrome() {
 }
 
 // Chrome blocks silent installs of off-store extensions, so walk the user through the three clicks.
+// Chrome ignores chrome:// addresses passed on the command line (it opens a blank tab), so we open
+// Chrome itself, copy the address for the user to paste, and keep a dialog up with the other helpers.
 async function setupExtension() {
   const dir = extensionDir();
-  clipboard.writeText(dir);
   const chrome = findChrome();
-  if (chrome) spawn(chrome, ['chrome://extensions'], { detached: true, stdio: 'ignore' }).unref();
-  await dialog.showMessageBox(win, {
-    type: 'info', title: 'Add the Chrome extension', buttons: ['OK'],
-    message: chrome ? 'Chrome is opening its extensions page.' : 'Open Chrome and go to chrome://extensions.',
-    detail: '1. Turn on "Developer mode" (top right).\n' +
-      '2. Click "Load unpacked".\n' +
-      '3. Choose this folder (its path is already copied; paste it into the folder box):\n\n' + dir
-  });
+  clipboard.writeText('chrome://extensions');
+  if (chrome) spawn(chrome, [], { detached: true, stdio: 'ignore' }).unref();
+
+  const detail = '1. In Chrome, click the address bar, press Ctrl+V (the address is copied) and press Enter.\n' +
+    '2. Turn on "Developer mode" (top right).\n' +
+    '3. Click "Load unpacked" and choose this folder:\n\n' + dir;
+  for (;;) {
+    const r = await dialog.showMessageBox(win, {
+      type: 'info', title: 'Add the Chrome extension', detail,
+      message: chrome ? 'Chrome is opening. Follow these steps:' : 'Open Chrome, then follow these steps:',
+      buttons: ['Copy folder path', 'Open folder', 'Copy chrome://extensions again', 'Done'], defaultId: 3, cancelId: 3
+    });
+    if (r.response === 0) clipboard.writeText(dir);
+    else if (r.response === 1) shell.openPath(dir);
+    else if (r.response === 2) clipboard.writeText('chrome://extensions');
+    else break;
+  }
 }
 
 function streamDeckPluginPath() {
