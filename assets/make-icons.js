@@ -1,4 +1,6 @@
-// Generates the app and extension icons (simple speaker glyph) with no dependencies.
+// Generates the app, extension and Stream Deck icons with no dependencies:
+// a red round badge with a white ring and bold "YTS" lettering. Deliberately not the
+// YouTube logo shape (no play button, no rounded rectangle).
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -20,25 +22,66 @@ const chunk = (type, data) => {
   return Buffer.concat([len, td, crc]);
 };
 
+const RED = [255, 0, 0];
+const WHITE = [255, 255, 255];
+
+// Letter strokes as polylines in a unit box (0..1 each axis).
+const LETTERS = {
+  Y: [[[0, 0], [0.5, 0.5]], [[1, 0], [0.5, 0.5]], [[0.5, 0.5], [0.5, 1]]],
+  T: [[[0, 0], [1, 0]], [[0.5, 0], [0.5, 1]]],
+  S: [[[0.95, 0.1], [0.08, 0.1], [0.08, 0.5], [0.92, 0.5], [0.92, 0.9], [0.05, 0.9]]]
+};
+
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+// Is canvas point (u, v) inside the lettering?
+function inLetters(u, v, stroke) {
+  const w = 0.18, h = 0.3, gap = 0.05, x0 = 0.5 - (3 * w + 2 * gap) / 2, y0 = 0.5 - h / 2;
+  'YTS'.split('').forEach(() => {});
+  let hit = false;
+  'YTS'.split('').forEach((ch, i) => {
+    if (hit) return;
+    const ox = x0 + i * (w + gap);
+    for (const line of LETTERS[ch]) {
+      for (let k = 0; k < line.length - 1; k++) {
+        const [ax, ay] = line[k], [bx, by] = line[k + 1];
+        if (segDist(u, v, ox + ax * w, y0 + ay * h, ox + bx * w, y0 + by * h) <= stroke / 2) { hit = true; return; }
+      }
+    }
+  });
+  return hit;
+}
+
+function sample(u, v, size) {
+  const r = Math.hypot(u - 0.5, v - 0.5);
+  if (r > 0.47) return null;                                  // transparent outside the badge
+  const stroke = size <= 32 ? 0.075 : 0.062;
+  if (inLetters(u, v, stroke)) return WHITE;
+  if (size >= 48 && r > 0.40 && r < 0.43) return WHITE;       // thin inner ring on larger sizes
+  return RED;
+}
+
 function png(size) {
   const raw = Buffer.alloc((size * 4 + 1) * size);
+  const SS = 4;                                               // 4x4 supersampling for smooth edges
   for (let y = 0; y < size; y++) {
     raw[y * (size * 4 + 1)] = 0;
     for (let x = 0; x < size; x++) {
-      const u = (x + 0.5) / size, v = (y + 0.5) / size;
-      // rounded-square background
-      const dx = Math.max(Math.abs(u - 0.5) - 0.34, 0), dy = Math.max(Math.abs(v - 0.5) - 0.34, 0);
-      const inBg = Math.hypot(dx, dy) < 0.16;
-      // speaker: box + cone + sound wave arc
-      const box = u > 0.24 && u < 0.36 && v > 0.40 && v < 0.60;
-      const t = (u - 0.36) / 0.2;
-      const cone = u >= 0.36 && u <= 0.56 && Math.abs(v - 0.5) < 0.10 + 0.20 * t;
-      const r = Math.hypot(u - 0.52, v - 0.5);
-      const wave = u > 0.62 && r > 0.20 && r < 0.27;
-      const white = inBg && (box || cone || wave);
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let sy = 0; sy < SS; sy++) for (let sx = 0; sx < SS; sx++) {
+        const c = sample((x + (sx + 0.5) / SS) / size, (y + (sy + 0.5) / SS) / size, size);
+        if (c) { r += c[0]; g += c[1]; b += c[2]; a++; }
+      }
       const i = y * (size * 4 + 1) + 1 + x * 4;
-      const [R, G, B, A] = !inBg ? [0, 0, 0, 0] : white ? [255, 255, 255, 255] : [79, 140, 255, 255];
-      raw[i] = R; raw[i + 1] = G; raw[i + 2] = B; raw[i + 3] = A;
+      const n = SS * SS;
+      raw[i] = a ? Math.round(r / a) : 0;
+      raw[i + 1] = a ? Math.round(g / a) : 0;
+      raw[i + 2] = a ? Math.round(b / a) : 0;
+      raw[i + 3] = Math.round((a / n) * 255);
     }
   }
   const ihdr = Buffer.alloc(13);
@@ -53,6 +96,7 @@ const root = path.join(__dirname, '..');
 fs.writeFileSync(path.join(__dirname, 'icon.png'), png(256));
 fs.mkdirSync(path.join(root, 'extension', 'icons'), { recursive: true });
 for (const s of [16, 48, 128]) fs.writeFileSync(path.join(root, 'extension', 'icons', `${s}.png`), png(s));
+
 // Stream Deck plugin images (each with an @2x variant).
 const imgs = path.join(root, 'streamdeck-plugin', 'com.rmstep.ytsoundboard.sdPlugin', 'imgs');
 fs.mkdirSync(imgs, { recursive: true });

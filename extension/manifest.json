@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YTSoundboard Clipper",
-  "version": "1.1.0",
-  "description": "Pick a start and end time on a YouTube video and send that clip to the YTSoundboard desktop app.",
+  "version": "1.1.1",
+  "description": "Clip YouTube moments into hotkey sounds. Needs the free YTSoundboard app: github.com/rmstep/YTSoundboard-releases",
   "host_permissions": ["http://127.0.0.1:38917/*"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [

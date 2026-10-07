@@ -5,7 +5,7 @@ Upload: `dist/ytsoundboard-extension.zip` (run `npm run extension-zip` to rebuil
 ## Store listing tab
 
 **Name:** YTSoundboard Clipper  (taken from manifest)
-**Summary (max 132 chars):** Clip any moment from a YouTube video and send it to the YTSoundboard desktop app as a hotkey sound.
+**Summary (max 132 chars):** Clip YouTube moments into hotkey sounds. Needs the free YTSoundboard app: github.com/rmstep/YTSoundboard-releases
 **Category:** Productivity (or Entertainment)
 **Language:** English
 
