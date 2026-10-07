@@ -1,30 +1,54 @@
 # YTSoundboard
 
-Global-hotkey soundboard for Windows. Sounds play to your speakers **and** into a virtual microphone, so Discord, games, etc. hear them. A Chrome extension clips sounds straight from YouTube.
+A hotkey soundboard for Windows. Clip a moment from any YouTube video, give it a key, and play it into your microphone (Discord, games, OBS) and your speakers at the same time. Works with Stream Deck.
 
-## Setup
+**[Download the installer](https://github.com/rmstep/YTSoundboard-releases/releases/latest)** · [Privacy policy](https://github.com/rmstep/YTSoundboard-releases/blob/main/PRIVACY.md) · MIT licensed
 
-1. `npm install` (already done), then run `start.bat` (or `npm start`). Closing the window keeps it in the tray so hotkeys keep working; quit from the tray icon.
-2. **Install VB-Cable** (free virtual audio device): https://vb-audio.com/Cable/ — run `VBCABLE_Setup_x64.exe` as administrator and reboot. Windows cannot redirect a microphone without a driver like this.
-3. In YTSoundboard, the **Virtual mic input** is auto-selected as `CABLE Input`. Pick your real mic under **Real microphone**.
-4. In Discord/OBS/game voice chat, set the microphone to **`CABLE Output`**. People now hear your mic plus your sounds.
-5. Load the extension: Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → select the `extension` folder.
+## How it works
 
-## Making sounds from YouTube
+- **Desktop app** (Electron): global hotkeys, a library of sounds, and an audio engine built on Web Audio. Each sound plays to two outputs at once: your speakers, and a virtual audio cable that carries your mic plus the sounds.
+- **Virtual mic:** Windows can't redirect a microphone without a driver. The app uses [VB-Cable](https://vb-audio.com/Cable/) (not bundled; the app downloads it from VB-Audio and verifies its signature). In Discord/OBS/games, choose **CABLE Output** as the microphone.
+- **Chrome extension** (`extension/`): adds a clip picker on youtube.com. It sends the video id and times to the app over `127.0.0.1:38917`, and the app cuts the audio with yt-dlp and ffmpeg.
+- **Stream Deck plugin** (`streamdeck-plugin/`): "Play Sound" and "Stop All" keys that show each sound's name and thumbnail.
+- **Auto-update:** installed copies check [YTSoundboard-releases](https://github.com/rmstep/YTSoundboard-releases) via electron-updater.
 
-On a video, click **🔊 Soundboard** (bottom-right). Drag the start/end handles or use the **now** buttons, **Preview** the range, name it, click the hotkey box and press a key combo, then **Add to soundboard**. The app cuts the audio with yt-dlp + ffmpeg (max 120 s per clip). The panel's dot is green when the desktop app is running.
+## Develop
 
-## Stream Deck
+Requires Windows, Node.js 20+, and optionally ffmpeg and yt-dlp on your PATH (the packaged app bundles both).
 
-Click **Install Stream Deck plugin** in the app (or run `npm run streamdeck` and open `build-tools/YTSoundboard.streamDeckPlugin`). Drag **Play Sound** onto a key and pick a sound; the key shows its name and thumbnail. **Stop All Sounds** is also available. Requires Stream Deck software 6.6+ with the app running.
+```bash
+npm install
+npm start          # run the app
+npm run dist       # build the installer into dist/
+```
 
-## Audio controls
+Load the extension for development: `chrome://extensions` → Developer mode → Load unpacked → `extension/`.
 
-Master volume, mic level, sounds→virtual mic, sounds→speakers, per-sound volume, optional mic passthrough, optional self-monitor, retrigger behaviour (overlap/restart/stop), a stop-all hotkey and a live level meter. You can also add local audio files.
+### Releasing
 
-## Notes
+```bash
+# bump "version" in package.json (and extension/manifest.json if it changed)
+gh auth login                      # once
+npm run release                    # builds and uploads to the releases repo
+```
 
-- Hotkeys are global (work while a game is focused). Games running as administrator may block them unless YTSoundboard is also run as admin.
-- If a clip fails, YouTube probably changed something: update yt-dlp (`yt-dlp -U`, or `winget upgrade yt-dlp`).
-- The local API listens on `127.0.0.1:38917` only and accepts clip requests only from browser extensions.
-- Only clip content you have the right to use.
+Other scripts: `npm run icons` (regenerates icons), `npm run extension-zip` (Chrome Web Store package), `npm run streamdeck` (packs the Stream Deck plugin), `npx electron scripts/make-promo.js` (Web Store promo tiles).
+
+### Project layout
+
+| Path | What |
+|---|---|
+| `main.js`, `preload.js` | Electron main process: hotkeys, tray, local API, auto-update |
+| `src/` | App window UI and the audio engine (`renderer.js`) |
+| `lib/` | yt-dlp wrapper, local HTTP server, VB-Cable installer, config store |
+| `extension/` | Chrome extension (Manifest V3) |
+| `streamdeck-plugin/` | Stream Deck plugin |
+| `scripts/` | Build and release helpers |
+
+## Security notes
+
+The local API listens on loopback only. Clip requests are accepted only from browser extensions, and the Stream Deck routes need a custom header that web pages can't send cross-origin. Only YouTube URLs are accepted, and they are rebuilt from the video id before reaching yt-dlp.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Bundled third-party software and its licenses are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Only clip content you have the right to use.
