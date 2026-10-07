@@ -21,6 +21,7 @@
   "build": {
     "appId": "com.ytsoundboard.app",
     "productName": "YTSoundboard",
+    "electronLanguages": ["en-US"],
     "directories": {
       "output": "dist"
     },
