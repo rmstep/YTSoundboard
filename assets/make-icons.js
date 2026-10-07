@@ -65,7 +65,8 @@ function sample(u, v, size) {
   return RED;
 }
 
-function png(size) {
+// `scale` shrinks the artwork inside the canvas (the Web Store wants 96px of art in a 128px icon).
+function png(size, scale = 1) {
   const raw = Buffer.alloc((size * 4 + 1) * size);
   const SS = 4;                                               // 4x4 supersampling for smooth edges
   for (let y = 0; y < size; y++) {
@@ -73,7 +74,9 @@ function png(size) {
     for (let x = 0; x < size; x++) {
       let r = 0, g = 0, b = 0, a = 0;
       for (let sy = 0; sy < SS; sy++) for (let sx = 0; sx < SS; sx++) {
-        const c = sample((x + (sx + 0.5) / SS) / size, (y + (sy + 0.5) / SS) / size, size);
+        const u = ((x + (sx + 0.5) / SS) / size - 0.5) / scale + 0.5;
+        const v = ((y + (sy + 0.5) / SS) / size - 0.5) / scale + 0.5;
+        const c = sample(u, v, size * scale);
         if (c) { r += c[0]; g += c[1]; b += c[2]; a++; }
       }
       const i = y * (size * 4 + 1) + 1 + x * 4;
@@ -96,6 +99,10 @@ const root = path.join(__dirname, '..');
 fs.writeFileSync(path.join(__dirname, 'icon.png'), png(256));
 fs.mkdirSync(path.join(root, 'extension', 'icons'), { recursive: true });
 for (const s of [16, 48, 128]) fs.writeFileSync(path.join(root, 'extension', 'icons', `${s}.png`), png(s));
+
+// Chrome Web Store listing icon: 128x128 with 96x96 artwork and 16px transparent padding.
+fs.mkdirSync(path.join(root, 'store-assets'), { recursive: true });
+fs.writeFileSync(path.join(root, 'store-assets', 'store-icon-128.png'), png(128, 96 / 128));
 
 // Stream Deck plugin images (each with an @2x variant).
 const imgs = path.join(root, 'streamdeck-plugin', 'com.rmstep.ytsoundboard.sdPlugin', 'imgs');
