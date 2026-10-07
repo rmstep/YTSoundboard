@@ -318,13 +318,24 @@ async function onState(next) {
   renderSettings();
   const devs = await renderDevices();
 
-  // Offer the installer when no virtual cable exists; auto-pick one when it does.
-  const cable = devs.find((d) => d.kind === 'audiooutput' && /cable input/i.test(d.label));
-  $('#btn-cable').hidden = !!cable;
-  if (cable && !state.settings.cableDeviceId && !onState.autoPicked) {
-    onState.autoPicked = true;
-    return window.api.setSettings({ cableDeviceId: cable.deviceId });
-  }
+  // Offer the installer when no virtual cable exists.
+  $('#btn-cable').hidden = devs.some((d) => d.kind === 'audiooutput' && /cable input/i.test(d.label));
+
+  // Chromium issues new device ids each launch, so re-find saved devices by name. The virtual
+  // cable is picked automatically unless the user deliberately chose "none".
+  const s = state.settings;
+  const patch = {};
+  const resolve = (kind, idKey, labelKey, autoPattern) => {
+    const id = s[idKey], label = s[labelKey];
+    let match = devs.find((d) => d.kind === kind && id && d.deviceId === id);
+    if (!match && label) match = devs.find((d) => d.kind === kind && d.label === label);
+    if (!match && autoPattern && !label && !s.cableChosen) match = devs.find((d) => d.kind === kind && autoPattern.test(d.label));
+    if (match && (match.deviceId !== id || match.label !== label)) { patch[idKey] = match.deviceId; patch[labelKey] = match.label; }
+  };
+  resolve('audioinput', 'micDeviceId', 'micDeviceLabel');
+  resolve('audiooutput', 'cableDeviceId', 'cableDeviceLabel', /^CABLE Input/i);
+  resolve('audiooutput', 'speakerDeviceId', 'speakerDeviceLabel');
+  if (Object.keys(patch).length) return window.api.setSettings(patch);
 
   const key = [state.settings.micDeviceId, state.settings.cableDeviceId, state.settings.speakerDeviceId, state.settings.micEnabled].join('|');
   if (key !== lastDeviceKey) { lastDeviceKey = key; await rebuildAudio(); }
@@ -341,9 +352,15 @@ function bindControls() {
   [['#r-master', 'masterVolume'], ['#r-mic', 'micGain'], ['#r-s2m', 'soundsToMic'], ['#r-s2s', 'soundsToSpeakers']]
     .forEach(([id, k]) => { slider(id, k); commit(id, k); });
 
-  $('#sel-mic').addEventListener('change', (e) => window.api.setSettings({ micDeviceId: e.target.value }));
-  $('#sel-cable').addEventListener('change', (e) => window.api.setSettings({ cableDeviceId: e.target.value }));
-  $('#sel-speaker').addEventListener('change', (e) => window.api.setSettings({ speakerDeviceId: e.target.value }));
+  // Save the device's name next to its id: ids change between launches, names don't.
+  const pick = (idKey, labelKey, extra = {}) => (e) => window.api.setSettings({
+    [idKey]: e.target.value,
+    [labelKey]: e.target.value ? e.target.selectedOptions[0].text : '',
+    ...extra
+  });
+  $('#sel-mic').addEventListener('change', pick('micDeviceId', 'micDeviceLabel'));
+  $('#sel-cable').addEventListener('change', pick('cableDeviceId', 'cableDeviceLabel', { cableChosen: true }));
+  $('#sel-speaker').addEventListener('change', pick('speakerDeviceId', 'speakerDeviceLabel'));
   $('#sel-retrigger').addEventListener('change', (e) => window.api.setSettings({ retrigger: e.target.value }));
   $('#c-mic').addEventListener('change', (e) => window.api.setSettings({ micEnabled: e.target.checked }));
   $('#c-monitor').addEventListener('change', (e) => window.api.setSettings({ monitorMic: e.target.checked }));

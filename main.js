@@ -8,7 +8,8 @@ const yt = require('./lib/ytdlp');
 const vbcable = require('./lib/vbcable');
 const { startServer, PORT } = require('./lib/server');
 
-const SETTING_KEYS = ['micDeviceId', 'cableDeviceId', 'speakerDeviceId', 'micEnabled', 'monitorMic',
+const SETTING_KEYS = ['micDeviceId', 'cableDeviceId', 'speakerDeviceId', 'micDeviceLabel', 'cableDeviceLabel',
+  'speakerDeviceLabel', 'cableChosen', 'micEnabled', 'monitorMic',
   'masterVolume', 'micGain', 'soundsToMic', 'soundsToSpeakers', 'retrigger', 'stopKey'];
 
 let store, win, tray, quitting = false, hotkeyIssues = {}, soundsDir;
