@@ -1,0 +1,170 @@
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, dialog, nativeImage, session } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const Store = require('./lib/store');
+const yt = require('./lib/ytdlp');
+const vbcable = require('./lib/vbcable');
+const { startServer, PORT } = require('./lib/server');
+
+const SETTING_KEYS = ['micDeviceId', 'cableDeviceId', 'speakerDeviceId', 'micEnabled', 'monitorMic',
+  'masterVolume', 'micGain', 'soundsToMic', 'soundsToSpeakers', 'retrigger', 'stopKey'];
+
+let store, win, tray, quitting = false, hotkeyIssues = {}, soundsDir;
+
+function publicState() {
+  return { sounds: store.data.sounds, settings: store.data.settings, issues: hotkeyIssues, port: PORT, tools: yt.status() };
+}
+function send(channel, payload) {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
+function broadcast() { send('state', publicState()); }
+
+function registerHotkeys() {
+  globalShortcut.unregisterAll();
+  hotkeyIssues = {};
+  const used = new Set();
+  const bind = (key, issueId, fn) => {
+    if (!key) return;
+    if (used.has(key)) { hotkeyIssues[issueId] = `"${key}" is already assigned to another sound`; return; }
+    let ok = false;
+    try { ok = globalShortcut.register(key, fn); } catch { /* invalid accelerator */ }
+    if (ok) used.add(key); else hotkeyIssues[issueId] = `"${key}" could not be registered (in use by another app?)`;
+  };
+  for (const s of store.data.sounds) bind(s.key, s.id, () => send('trigger', s.id));
+  bind(store.data.settings.stopKey, 'stop', () => send('stop-all'));
+}
+
+function addSound({ name, file, key = '', source }) {
+  const sound = { id: path.parse(file).name, name: name || 'New sound', file, key, volume: 1, source };
+  store.data.sounds.push(sound);
+  store.save();
+  registerHotkeys();
+  broadcast();
+  return sound;
+}
+
+async function handleClip({ url, start, end, name, key }) {
+  const id = crypto.randomUUID();
+  send('toast', 'Downloading clip…');
+  const file = await yt.downloadClip({ url, start, end, outDir: soundsDir, id });
+  const taken = store.data.sounds.some((s) => s.key && s.key === key);
+  const sound = addSound({ name: name || 'YouTube clip', file, key: taken ? '' : key, source: { url, start, end } });
+  send('toast', `Added "${sound.name}"`);
+  return { sound: { id: sound.id, name: sound.name }, warning: taken ? 'That key was already in use, so none was assigned.' : undefined };
+}
+
+function createWindow() {
+  win = new BrowserWindow({
+    width: 1100, height: 760, minWidth: 820, minHeight: 560,
+    backgroundColor: '#14161c', title: 'AutoSoundboard',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false,
+      backgroundThrottling: false,           // keep audio + hotkeys responsive while hidden
+      autoplayPolicy: 'no-user-gesture-required'
+    }
+  });
+  win.setMenuBarVisibility(false);
+  win.loadFile(path.join(__dirname, 'src', 'index.html'));
+  win.on('close', (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
+}
+
+function createTray() {
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')));
+  tray.setToolTip('AutoSoundboard');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Show', click: () => win.show() },
+    { label: 'Stop all sounds', click: () => send('stop-all') },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { quitting = true; app.quit(); } }
+  ]));
+  tray.on('click', () => win.show());
+}
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => { if (win) { win.show(); win.focus(); } });
+
+  app.whenReady().then(() => {
+    session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media'));
+    session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === 'media');
+
+    store = new Store(app.getPath('userData'));
+    soundsDir = path.join(app.getPath('userData'), 'sounds');
+    fs.mkdirSync(soundsDir, { recursive: true });
+    yt.init(path.join(app.getPath('userData'), 'bin'));
+
+    startServer({ onClip: handleClip, getInfo: () => ({ sounds: store.data.sounds.length, tools: yt.status() }) });
+    createWindow();
+    createTray();
+    registerHotkeys();
+
+    ipcMain.handle('state:get', () => publicState());
+
+    ipcMain.handle('settings:set', (_e, patch) => {
+      for (const k of SETTING_KEYS) if (k in patch) store.data.settings[k] = patch[k];
+      store.save();
+      registerHotkeys();
+      broadcast();
+    });
+
+    ipcMain.handle('sound:read', (_e, id) => {
+      const s = store.data.sounds.find((x) => x.id === id);
+      if (!s) return null;
+      return fs.readFileSync(path.join(soundsDir, path.basename(s.file)));
+    });
+
+    ipcMain.handle('sound:update', (_e, id, patch) => {
+      const s = store.data.sounds.find((x) => x.id === id);
+      if (!s) return;
+      if (typeof patch.name === 'string') s.name = patch.name.slice(0, 80);
+      if (typeof patch.key === 'string') s.key = patch.key;
+      if (typeof patch.volume === 'number') s.volume = Math.max(0, Math.min(2, patch.volume));
+      store.save();
+      registerHotkeys();
+      broadcast();
+    });
+
+    ipcMain.handle('sound:delete', (_e, id) => {
+      const i = store.data.sounds.findIndex((x) => x.id === id);
+      if (i < 0) return;
+      const [s] = store.data.sounds.splice(i, 1);
+      try { fs.unlinkSync(path.join(soundsDir, path.basename(s.file))); } catch { /* already gone */ }
+      store.save();
+      registerHotkeys();
+      broadcast();
+    });
+
+    ipcMain.handle('sound:import', async () => {
+      const r = await dialog.showOpenDialog(win, {
+        title: 'Add sound files', properties: ['openFile', 'multiSelect'],
+        filters: [{ name: 'Audio', extensions: ['wav', 'mp3', 'ogg', 'flac', 'm4a', 'aac', 'opus'] }]
+      });
+      if (r.canceled) return;
+      for (const src of r.filePaths) {
+        const id = crypto.randomUUID();
+        const file = id + path.extname(src).toLowerCase();
+        fs.copyFileSync(src, path.join(soundsDir, file));
+        addSound({ name: path.parse(src).name, file });
+      }
+    });
+
+    ipcMain.handle('hotkeys:suspend', (_e, on) => { if (on) globalShortcut.unregisterAll(); else registerHotkeys(); });
+
+    ipcMain.handle('cable:install', async () => {
+      try { await vbcable.install((m) => send('toast', m)); } catch (e) { send('toast', 'Virtual mic install failed: ' + e.message); }
+    });
+
+    ipcMain.handle('tools:install', async () => {
+      try { await yt.install(); send('toast', 'yt-dlp installed'); } catch (e) { send('toast', 'Install failed: ' + e.message); }
+      broadcast();
+    });
+  });
+
+  app.on('before-quit', () => { quitting = true; });
+  app.on('will-quit', () => globalShortcut.unregisterAll());
+  app.on('window-all-closed', () => { /* stay in tray */ });
+}

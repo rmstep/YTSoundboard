@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "AutoSoundboard Clipper",
+  "version": "1.0.0",
+  "description": "Pick a start and end time on a YouTube video and send that clip to the AutoSoundboard desktop app.",
+  "host_permissions": ["http://127.0.0.1:38917/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*", "https://m.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
+}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; media-src 'self' blob:">
+<title>AutoSoundboard</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>AutoSoundboard</h1>
+  <div class="chips">
+    <span class="chip" id="chip-ext" title="Chrome extension listens on this port"></span>
+    <span class="chip" id="chip-tools"></span>
+    <span class="chip" id="chip-cable"></span>
+  </div>
+  <div class="spacer"></div>
+  <div class="meter" title="Level going into the virtual mic"><div id="meter-bar"></div></div>
+  <button id="btn-stop" class="danger">Stop all</button>
+  <button id="btn-add">+ Add file</button>
+</header>
+
+<main>
+  <section id="grid" class="grid"></section>
+
+  <aside>
+    <h2>Audio routing</h2>
+    <label>Real microphone
+      <select id="sel-mic"></select>
+    </label>
+    <label>Virtual mic input <small>(e.g. "CABLE Input")</small>
+      <select id="sel-cable"></select>
+    </label>
+    <label>My speakers / headphones
+      <select id="sel-speaker"></select>
+    </label>
+    <div class="hint" id="cable-hint"></div>
+    <button id="btn-cable" class="primary" hidden>Install virtual mic (VB-Cable)</button>
+
+    <h2>Levels</h2>
+    <label>Master <output id="o-master"></output><input type="range" id="r-master" min="0" max="1.5" step="0.01"></label>
+    <label>My mic → virtual mic <output id="o-mic"></output><input type="range" id="r-mic" min="0" max="2" step="0.01"></label>
+    <label>Sounds → virtual mic <output id="o-s2m"></output><input type="range" id="r-s2m" min="0" max="2" step="0.01"></label>
+    <label>Sounds → my speakers <output id="o-s2s"></output><input type="range" id="r-s2s" min="0" max="2" step="0.01"></label>
+
+    <h2>Options</h2>
+    <label class="check"><input type="checkbox" id="c-mic"> Pass my mic through to the virtual mic</label>
+    <label class="check"><input type="checkbox" id="c-monitor"> Hear my own mic in my speakers</label>
+    <label>When a sound is triggered again
+      <select id="sel-retrigger">
+        <option value="overlap">Overlap (play another copy)</option>
+        <option value="restart">Restart it</option>
+        <option value="stop">Stop it</option>
+      </select>
+    </label>
+    <label>Stop-all hotkey
+      <button id="btn-stopkey" class="keybtn"></button>
+    </label>
+    <button id="btn-install" hidden>Install yt-dlp</button>
+  </aside>
+</main>
+
+<div id="modal" hidden>
+  <div class="modal-box">
+    <p>Press the key combination to assign</p>
+    <p class="small">Esc cancels · Delete clears</p>
+    <div id="modal-keys">…</div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "name": "autosoundboard",
+  "version": "1.0.0",
+  "description": "Hotkey soundboard that mixes into a virtual microphone and your speakers, fed by a YouTube clipper Chrome extension.",
+  "author": "AutoSoundboard",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node assets/make-icons.js",
+    "tools": "node scripts/fetch-tools.js",
+    "extension-zip": "node scripts/pack-extension.js",
+    "dist": "node scripts/fetch-tools.js && electron-builder --win nsis && node scripts/pack-extension.js"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
+    "ffmpeg-static": "^5.3.0"
+  },
+  "build": {
+    "appId": "com.autosoundboard.app",
+    "productName": "AutoSoundboard",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "lib/**", "src/**", "assets/icon.png", "package.json"],
+    "extraResources": [{ "from": "build-tools", "to": "bin", "filter": ["*.exe", "*.txt"] }],
+    "win": { "target": "nsis", "icon": "assets/icon.png" },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "AutoSoundboard"
+    }
+  },
+  "license": "MIT"
+}
