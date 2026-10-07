@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, dialog, nativeImage, session, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, dialog, nativeImage, session, shell, clipboard } = require('electron');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -75,6 +76,35 @@ function keyThumbnail(id) {
     .resize({ width: 144, height: 144, quality: 'best' }).toPNG();
   keyThumbs.set(id, png);
   return png;
+}
+
+// The extension ships inside the app (and updates with it), so "Load unpacked" can point at a stable folder.
+function extensionDir() {
+  return app.isPackaged ? path.join(process.resourcesPath, 'extension') : path.join(__dirname, 'extension');
+}
+
+function findChrome() {
+  const local = process.env.LOCALAPPDATA || '';
+  return [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    path.join(local, 'Google', 'Chrome', 'Application', 'chrome.exe')
+  ].find((p) => fs.existsSync(p)) || null;
+}
+
+// Chrome blocks silent installs of off-store extensions, so walk the user through the three clicks.
+async function setupExtension() {
+  const dir = extensionDir();
+  clipboard.writeText(dir);
+  const chrome = findChrome();
+  if (chrome) spawn(chrome, ['chrome://extensions'], { detached: true, stdio: 'ignore' }).unref();
+  await dialog.showMessageBox(win, {
+    type: 'info', title: 'Add the Chrome extension', buttons: ['OK'],
+    message: chrome ? 'Chrome is opening its extensions page.' : 'Open Chrome and go to chrome://extensions.',
+    detail: '1. Turn on "Developer mode" (top right).\n' +
+      '2. Click "Load unpacked".\n' +
+      '3. Choose this folder (its path is already copied; paste it into the folder box):\n\n' + dir
+  });
 }
 
 function streamDeckPluginPath() {
@@ -233,6 +263,23 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     ipcMain.handle('hotkeys:suspend', (_e, on) => { if (on) globalShortcut.unregisterAll(); else registerHotkeys(); });
+
+    ipcMain.handle('extension:setup', () => setupExtension());
+
+    // First run of an installed copy: offer the extension setup once.
+    if (app.isPackaged && !store.data.settings.extPrompted) {
+      win.webContents.once('did-finish-load', () => setTimeout(async () => {
+        const r = await dialog.showMessageBox(win, {
+          type: 'question', buttons: ['Set up now', 'Later'], defaultId: 0, cancelId: 1,
+          title: 'Welcome to YTSoundboard',
+          message: 'Add the Chrome extension?',
+          detail: 'The extension lets you clip sounds from YouTube. You can also do this later from the sidebar.'
+        });
+        store.data.settings.extPrompted = true;
+        store.save();
+        if (r.response === 0) setupExtension();
+      }, 1500));
+    }
 
     ipcMain.handle('streamdeck:install', async () => {
       const p = streamDeckPluginPath();

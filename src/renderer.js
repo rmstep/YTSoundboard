@@ -355,6 +355,7 @@ function bindControls() {
   $('#btn-add').addEventListener('click', () => window.api.importSounds());
   $('#btn-install').addEventListener('click', () => { toast('Downloading yt-dlp…'); window.api.installTools(); });
 
+  $('#btn-extension').addEventListener('click', () => window.api.setupExtension());
   $('#btn-streamdeck').addEventListener('click', () => window.api.installStreamDeck());
   $('#btn-cable').addEventListener('click', () => { toast('Preparing virtual mic installer…'); window.api.installCable(); });
   navigator.mediaDevices.addEventListener('devicechange', () => onState(state));

@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteSound: (id) => ipcRenderer.invoke('sound:delete', id),
   importSounds: () => ipcRenderer.invoke('sound:import'),
   suspendHotkeys: (on) => ipcRenderer.invoke('hotkeys:suspend', on),
+  setupExtension: () => ipcRenderer.invoke('extension:setup'),
   installStreamDeck: () => ipcRenderer.invoke('streamdeck:install'),
   readThumb: (id) => ipcRenderer.invoke('sound:thumb', id),
   installUpdate: () => ipcRenderer.invoke('update:install'),
