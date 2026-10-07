@@ -1,0 +1,33 @@
+{
+  "SDKVersion": 2,
+  "Name": "YTSoundboard",
+  "Version": "1.0.0.0",
+  "Author": "YTSoundboard",
+  "Description": "Trigger YTSoundboard sounds from your Stream Deck.",
+  "Icon": "imgs/plugin",
+  "CategoryIcon": "imgs/category",
+  "Category": "YTSoundboard",
+  "CodePath": "bin/plugin.js",
+  "Nodejs": { "Version": "20" },
+  "OS": [{ "Platform": "windows", "MinimumVersion": "10" }],
+  "Software": { "MinimumVersion": "6.6" },
+  "Actions": [
+    {
+      "UUID": "com.rmstep.ytsoundboard.play",
+      "Name": "Play Sound",
+      "Tooltip": "Play a YTSoundboard sound.",
+      "Icon": "imgs/action",
+      "PropertyInspectorPath": "ui/play.html",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/key", "TitleAlignment": "bottom", "FontSize": "10", "ShowTitle": true }]
+    },
+    {
+      "UUID": "com.rmstep.ytsoundboard.stop",
+      "Name": "Stop All Sounds",
+      "Tooltip": "Stop everything YTSoundboard is playing.",
+      "Icon": "imgs/action",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/key", "Title": "Stop", "TitleAlignment": "bottom" }]
+    }
+  ]
+}

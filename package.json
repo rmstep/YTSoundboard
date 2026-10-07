@@ -9,8 +9,9 @@
     "icons": "node assets/make-icons.js",
     "tools": "node scripts/fetch-tools.js",
     "extension-zip": "node scripts/pack-extension.js",
-    "release": "node scripts/fetch-tools.js && electron-builder --win nsis --publish always && node scripts/pack-extension.js",
-    "dist":"node scripts/fetch-tools.js && electron-builder --win nsis && node scripts/pack-extension.js"
+    "streamdeck": "node scripts/pack-streamdeck.js",
+    "release": "node scripts/fetch-tools.js && node scripts/pack-streamdeck.js && electron-builder --win nsis --publish always && node scripts/pack-extension.js",
+    "dist": "node scripts/fetch-tools.js && node scripts/pack-streamdeck.js && electron-builder --win nsis && node scripts/pack-extension.js"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -38,7 +39,8 @@
         "to": "bin",
         "filter": [
           "*.exe",
-          "*.txt"
+          "*.txt",
+          "*.streamDeckPlugin"
         ]
       }
     ],

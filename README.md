@@ -14,6 +14,10 @@ Global-hotkey soundboard for Windows. Sounds play to your speakers **and** into 
 
 On a video, click **🔊 Soundboard** (bottom-right). Drag the start/end handles or use the **now** buttons, **Preview** the range, name it, click the hotkey box and press a key combo, then **Add to soundboard**. The app cuts the audio with yt-dlp + ffmpeg (max 120 s per clip). The panel's dot is green when the desktop app is running.
 
+## Stream Deck
+
+Click **Install Stream Deck plugin** in the app (or run `npm run streamdeck` and open `build-tools/YTSoundboard.streamDeckPlugin`). Drag **Play Sound** onto a key and pick a sound; the key shows its name and thumbnail. **Stop All Sounds** is also available. Requires Stream Deck software 6.6+ with the app running.
+
 ## Audio controls
 
 Master volume, mic level, sounds→virtual mic, sounds→speakers, per-sound volume, optional mic passthrough, optional self-monitor, retrigger behaviour (overlap/restart/stop), a stop-all hotkey and a live level meter. You can also add local audio files.

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, dialog, nativeImage, session } = require('electron');
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, dialog, nativeImage, session, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -59,6 +59,31 @@ async function handleClip({ url, start, end, name, key, thumbnail }) {
   const sound = addSound({ name: name || 'YouTube clip', file, key: taken ? '' : key, source: { url, start, end }, thumb });
   send('toast', `Added "${sound.name}"`);
   return { sound: { id: sound.id, name: sound.name }, warning: warnings.join(' ') || undefined };
+}
+
+// Square 144px PNG of a sound's thumbnail, sized for a Stream Deck key.
+const keyThumbs = new Map();
+function keyThumbnail(id) {
+  const s = store.data.sounds.find((x) => x.id === id);
+  if (!s || !s.thumb) return null;
+  if (keyThumbs.has(id)) return keyThumbs.get(id);
+  const img = nativeImage.createFromPath(path.join(soundsDir, path.basename(s.thumb)));
+  if (img.isEmpty()) return null;
+  const { width, height } = img.getSize();
+  const side = Math.min(width, height);
+  const png = img.crop({ x: Math.floor((width - side) / 2), y: Math.floor((height - side) / 2), width: side, height: side })
+    .resize({ width: 144, height: 144, quality: 'best' }).toPNG();
+  keyThumbs.set(id, png);
+  return png;
+}
+
+function streamDeckPluginPath() {
+  const candidates = [path.join(process.resourcesPath || '', 'bin'), path.join(__dirname, 'build-tools')];
+  for (const dir of candidates) {
+    const p = path.join(dir, 'YTSoundboard.streamDeckPlugin');
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
 }
 
 // Carry sounds and settings over from the app's old name.
@@ -129,7 +154,20 @@ if (!app.requestSingleInstanceLock()) {
     fs.mkdirSync(soundsDir, { recursive: true });
     yt.init(path.join(app.getPath('userData'), 'bin'));
 
-    startServer({ onClip: handleClip, getInfo: () => ({ sounds: store.data.sounds.length, tools: yt.status() }) });
+    startServer({
+      onClip: handleClip,
+      getInfo: () => ({ sounds: store.data.sounds.length, tools: yt.status() }),
+      api: {
+        list: () => store.data.sounds.map((s) => ({ id: s.id, name: s.name, key: s.key, thumb: !!s.thumb })),
+        play: (id) => {
+          if (!store.data.sounds.some((s) => s.id === id)) return false;
+          send('trigger', id);
+          return true;
+        },
+        stop: () => send('stop-all'),
+        thumb: (id) => keyThumbnail(id)
+      }
+    });
     createWindow();
     createTray();
     registerHotkeys();
@@ -195,6 +233,13 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     ipcMain.handle('hotkeys:suspend', (_e, on) => { if (on) globalShortcut.unregisterAll(); else registerHotkeys(); });
+
+    ipcMain.handle('streamdeck:install', async () => {
+      const p = streamDeckPluginPath();
+      if (!p) return send('toast', 'Stream Deck plugin file not found');
+      const err = await shell.openPath(p);   // the Stream Deck app handles .streamDeckPlugin files
+      send('toast', err ? 'Could not open the plugin. Is the Stream Deck app installed?' : 'Confirm the install in the Stream Deck app');
+    });
 
     ipcMain.handle('cable:install', async () => {
       try { await vbcable.install((m) => send('toast', m)); } catch (e) { send('toast', 'Virtual mic install failed: ' + e.message); }

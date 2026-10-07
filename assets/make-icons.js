@@ -53,4 +53,11 @@ const root = path.join(__dirname, '..');
 fs.writeFileSync(path.join(__dirname, 'icon.png'), png(256));
 fs.mkdirSync(path.join(root, 'extension', 'icons'), { recursive: true });
 for (const s of [16, 48, 128]) fs.writeFileSync(path.join(root, 'extension', 'icons', `${s}.png`), png(s));
+// Stream Deck plugin images (each with an @2x variant).
+const imgs = path.join(root, 'streamdeck-plugin', 'com.rmstep.ytsoundboard.sdPlugin', 'imgs');
+fs.mkdirSync(imgs, { recursive: true });
+for (const [name, size] of [['plugin', 256], ['category', 28], ['action', 20], ['key', 72]]) {
+  fs.writeFileSync(path.join(imgs, `${name}.png`), png(size));
+  fs.writeFileSync(path.join(imgs, `${name}@2x.png`), png(size * 2));
+}
 console.log('icons written');
