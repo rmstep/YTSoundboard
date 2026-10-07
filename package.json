@@ -10,7 +10,7 @@
     "tools": "node scripts/fetch-tools.js",
     "extension-zip": "node scripts/pack-extension.js",
     "streamdeck": "node scripts/pack-streamdeck.js",
-    "release": "node scripts/fetch-tools.js && node scripts/pack-streamdeck.js && electron-builder --win nsis --publish always && node scripts/pack-extension.js",
+    "release": "node scripts/release.js",
     "dist": "node scripts/fetch-tools.js && node scripts/pack-streamdeck.js && electron-builder --win nsis && node scripts/pack-extension.js"
   },
   "devDependencies": {
