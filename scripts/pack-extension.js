@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const src = path.join(__dirname, '..', 'extension');
-const dest = path.join(__dirname, '..', 'dist', 'autosoundboard-extension.zip');
+const dest = path.join(__dirname, '..', 'dist', 'ytsoundboard-extension.zip');
 fs.mkdirSync(path.dirname(dest), { recursive: true });
 if (fs.existsSync(dest)) fs.unlinkSync(dest);
 const r = spawnSync('powershell.exe', ['-NoProfile', '-Command',

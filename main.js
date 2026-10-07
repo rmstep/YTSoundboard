@@ -35,8 +35,8 @@ function registerHotkeys() {
   bind(store.data.settings.stopKey, 'stop', () => send('stop-all'));
 }
 
-function addSound({ name, file, key = '', source }) {
-  const sound = { id: path.parse(file).name, name: name || 'New sound', file, key, volume: 1, source };
+function addSound({ name, file, key = '', source, thumb }) {
+  const sound = { id: path.parse(file).name, name: name || 'New sound', file, key, volume: 1, source, thumb };
   store.data.sounds.push(sound);
   store.save();
   registerHotkeys();
@@ -44,20 +44,51 @@ function addSound({ name, file, key = '', source }) {
   return sound;
 }
 
-async function handleClip({ url, start, end, name, key }) {
+async function handleClip({ url, start, end, name, key, thumbnail }) {
   const id = crypto.randomUUID();
   send('toast', 'Downloading clip…');
   const file = await yt.downloadClip({ url, start, end, outDir: soundsDir, id });
-  const taken = store.data.sounds.some((s) => s.key && s.key === key);
-  const sound = addSound({ name: name || 'YouTube clip', file, key: taken ? '' : key, source: { url, start, end } });
+  let thumb;
+  const warnings = [];
+  if (thumbnail) {
+    try { thumb = await yt.downloadThumbnail({ url, outDir: soundsDir, id }); }
+    catch { warnings.push('Could not download the thumbnail.'); }
+  }
+  const taken = key && store.data.sounds.some((s) => s.key === key);
+  if (taken) warnings.push('That key was already in use, so none was assigned.');
+  const sound = addSound({ name: name || 'YouTube clip', file, key: taken ? '' : key, source: { url, start, end }, thumb });
   send('toast', `Added "${sound.name}"`);
-  return { sound: { id: sound.id, name: sound.name }, warning: taken ? 'That key was already in use, so none was assigned.' : undefined };
+  return { sound: { id: sound.id, name: sound.name }, warning: warnings.join(' ') || undefined };
+}
+
+// Carry sounds and settings over from the app's old name.
+function migrateOldData() {
+  const target = app.getPath('userData');
+  const old = path.join(path.dirname(target), 'autosoundboard');
+  if (fs.existsSync(path.join(target, 'config.json')) || !fs.existsSync(path.join(old, 'config.json'))) return;
+  try {
+    // Only our own data: the rest of the old folder is Chromium cache and may hold locked files.
+    fs.cpSync(path.join(old, 'sounds'), path.join(target, 'sounds'), { recursive: true });
+    fs.copyFileSync(path.join(old, 'config.json'), path.join(target, 'config.json'));
+  } catch { /* start fresh if copy fails */ }
+}
+
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.on('update-available', () => send('toast', 'Update found, downloading…'));
+  autoUpdater.on('update-downloaded', (info) => send('update-ready', info.version));
+  autoUpdater.on('error', () => { /* offline or no release: stay quiet */ });
+  ipcMain.handle('update:install', () => { quitting = true; autoUpdater.quitAndInstall(); });
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  check();
+  setInterval(check, 6 * 60 * 60 * 1000);
 }
 
 function createWindow() {
   win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 820, minHeight: 560,
-    backgroundColor: '#14161c', title: 'AutoSoundboard',
+    backgroundColor: '#14161c', title: 'YTSoundboard',
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -73,7 +104,7 @@ function createWindow() {
 
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')));
-  tray.setToolTip('AutoSoundboard');
+  tray.setToolTip('YTSoundboard');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Show', click: () => win.show() },
     { label: 'Stop all sounds', click: () => send('stop-all') },
@@ -92,6 +123,7 @@ if (!app.requestSingleInstanceLock()) {
     session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media'));
     session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === 'media');
 
+    migrateOldData();
     store = new Store(app.getPath('userData'));
     soundsDir = path.join(app.getPath('userData'), 'sounds');
     fs.mkdirSync(soundsDir, { recursive: true });
@@ -101,6 +133,7 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     createTray();
     registerHotkeys();
+    setupAutoUpdate();
 
     ipcMain.handle('state:get', () => publicState());
 
@@ -115,6 +148,13 @@ if (!app.requestSingleInstanceLock()) {
       const s = store.data.sounds.find((x) => x.id === id);
       if (!s) return null;
       return fs.readFileSync(path.join(soundsDir, path.basename(s.file)));
+    });
+
+    ipcMain.handle('sound:thumb', (_e, id) => {
+      const s = store.data.sounds.find((x) => x.id === id);
+      if (!s || !s.thumb) return null;
+      try { return 'data:image/jpeg;base64,' + fs.readFileSync(path.join(soundsDir, path.basename(s.thumb))).toString('base64'); }
+      catch { return null; }
     });
 
     ipcMain.handle('sound:update', (_e, id, patch) => {
@@ -132,7 +172,9 @@ if (!app.requestSingleInstanceLock()) {
       const i = store.data.sounds.findIndex((x) => x.id === id);
       if (i < 0) return;
       const [s] = store.data.sounds.splice(i, 1);
-      try { fs.unlinkSync(path.join(soundsDir, path.basename(s.file))); } catch { /* already gone */ }
+      for (const f of [s.file, s.thumb]) {
+        if (f) try { fs.unlinkSync(path.join(soundsDir, path.basename(f))); } catch { /* already gone */ }
+      }
       store.save();
       registerHotkeys();
       broadcast();

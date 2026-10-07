@@ -5,7 +5,7 @@ async function call(path, options) {
     const res = await fetch(BASE + path, options);
     return await res.json();
   } catch {
-    return { ok: false, error: 'AutoSoundboard app is not running' };
+    return { ok: false, error: 'YTSoundboard app is not running' };
   }
 }
 

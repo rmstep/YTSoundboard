@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; media-src 'self' blob:">
-<title>AutoSoundboard</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; media-src 'self' blob:; img-src 'self' data:">
+<title>YTSoundboard</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header>
-  <h1>AutoSoundboard</h1>
+  <h1>YTSoundboard</h1>
   <div class="chips">
     <span class="chip" id="chip-ext" title="Chrome extension listens on this port"></span>
     <span class="chip" id="chip-tools"></span>
@@ -16,6 +16,7 @@
   </div>
   <div class="spacer"></div>
   <div class="meter" title="Level going into the virtual mic"><div id="meter-bar"></div></div>
+  <button id="btn-update" class="primary-inline" hidden>Update ready: restart</button>
   <button id="btn-stop" class="danger">Stop all</button>
   <button id="btn-add">+ Add file</button>
 </header>
@@ -30,6 +31,7 @@
     </label>
     <label>Virtual mic input <small>(e.g. "CABLE Input")</small>
       <select id="sel-cable"></select>
+      <span class="note">Then set your apps’ microphone to “CABLE Output”.</span>
     </label>
     <label>My speakers / headphones
       <select id="sel-speaker"></select>

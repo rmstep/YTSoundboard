@@ -1,4 +1,4 @@
-# AutoSoundboard
+# YTSoundboard
 
 Global-hotkey soundboard for Windows. Sounds play to your speakers **and** into a virtual microphone, so Discord, games, etc. hear them. A Chrome extension clips sounds straight from YouTube.
 
@@ -6,7 +6,7 @@ Global-hotkey soundboard for Windows. Sounds play to your speakers **and** into 
 
 1. `npm install` (already done), then run `start.bat` (or `npm start`). Closing the window keeps it in the tray so hotkeys keep working; quit from the tray icon.
 2. **Install VB-Cable** (free virtual audio device): https://vb-audio.com/Cable/ — run `VBCABLE_Setup_x64.exe` as administrator and reboot. Windows cannot redirect a microphone without a driver like this.
-3. In AutoSoundboard, the **Virtual mic input** is auto-selected as `CABLE Input`. Pick your real mic under **Real microphone**.
+3. In YTSoundboard, the **Virtual mic input** is auto-selected as `CABLE Input`. Pick your real mic under **Real microphone**.
 4. In Discord/OBS/game voice chat, set the microphone to **`CABLE Output`**. People now hear your mic plus your sounds.
 5. Load the extension: Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → select the `extension` folder.
 
@@ -20,7 +20,7 @@ Master volume, mic level, sounds→virtual mic, sounds→speakers, per-sound vol
 
 ## Notes
 
-- Hotkeys are global (work while a game is focused). Games running as administrator may block them unless AutoSoundboard is also run as admin.
+- Hotkeys are global (work while a game is focused). Games running as administrator may block them unless YTSoundboard is also run as admin.
 - If a clip fails, YouTube probably changed something: update yt-dlp (`yt-dlp -U`, or `winget upgrade yt-dlp`).
 - The local API listens on `127.0.0.1:38917` only and accepts clip requests only from browser extensions.
 - Only clip content you have the right to use.

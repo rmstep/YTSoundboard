@@ -24,8 +24,11 @@ main { flex: 1; display: flex; min-height: 0; }
 .empty { grid-column: 1 / -1; color: var(--dim); text-align: center; padding: 60px 20px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; transition: border-color .1s, box-shadow .1s; }
 .card.playing { border-color: var(--accent); box-shadow: 0 0 0 2px #4f8cff40; }
-.card .name { width: 100%; background: transparent; border: 1px solid transparent; padding: 2px 4px; font-weight: 600; }
-.card .name:focus { border-color: var(--line); background: var(--bg); outline: none; }
+.card { background-size: cover; background-position: center; }
+.card .name { width: 100%; background: #fff; color: #000; border: 1px solid #fff; border-radius: 4px; padding: 4px 8px; font-weight: 600; }
+.card .name:focus { border-color: var(--accent); outline: none; }
+.note { display: block; margin-top: 4px; color: var(--dim); font-size: 11px; }
+button.primary-inline { background: var(--ok); border-color: var(--ok); color: #fff; }
 .row { display: flex; align-items: center; gap: 8px; }
 .row input[type=range] { flex: 1; min-width: 0; }
 .keybtn { min-width: 90px; font-family: Consolas, monospace; font-size: 12px; }

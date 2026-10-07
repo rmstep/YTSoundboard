@@ -9,7 +9,7 @@ fs.mkdirSync(out, { recursive: true });
 
 function download(url, dest, redirects = 5) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'AutoSoundboard-build' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'YTSoundboard-build' } }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
         if (!redirects) return reject(new Error('Too many redirects'));

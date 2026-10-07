@@ -78,10 +78,12 @@
     button:disabled { opacity:.5; cursor:default; }
     .msg { margin-top:10px; font-size:12px; min-height:16px; }
     .msg.err { color:#ff7b80; } .msg.ok { color:#3fb950; }
+    label.check { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:#e8eaf0; cursor:pointer; }
+    label.check input { width:auto; margin:0; }
     .dur { color:#8b92a5; text-align:right; font-size:12px; margin:-6px 0 8px; }
   </style>
   <div class="panel" id="panel">
-    <div class="head"><span class="dot" id="dot"></span><span>Soundboard clipper</span></div>
+    <div class="head"><span class="dot" id="dot"></span><span>YTSoundboard clipper</span></div>
     <div class="title" id="title"></div>
     <div class="track" id="track">
       <div class="rail"></div><div class="sel" id="sel"></div><div class="head-pos" id="pos"></div>
@@ -95,13 +97,14 @@
     <label>Sound name</label><input id="in-name" maxlength="80">
     <div style="height:8px"></div>
     <label>Hotkey (click, then press keys · Esc clears)</label><input id="in-key" readonly placeholder="Click to assign">
+    <label class="check"><input type="checkbox" id="in-thumb"> Use video thumbnail as the sound's background</label>
     <div class="row">
       <button class="btn" id="btn-preview">▶ Preview</button>
       <button class="btn primary" id="btn-add">Add to soundboard</button>
     </div>
     <div class="msg" id="msg"></div>
   </div>
-  <button class="fab" id="fab">🔊 Soundboard</button>`;
+  <button class="fab" id="fab">🔊 YTSoundboard</button>`;
   document.documentElement.appendChild(host);
 
   // Keep keystrokes in our UI away from YouTube's global shortcuts.
@@ -231,12 +234,12 @@
     if (!st.videoId) return setMsg('Open a video first.', 'err');
     if (len <= 0 || len > MAX_CLIP) return setMsg(`Clip must be between 0 and ${MAX_CLIP} seconds.`, 'err');
     const btn = $('btn-add');
-    btn.disabled = true; setMsg('Sending to AutoSoundboard… this can take a few seconds.');
+    btn.disabled = true; setMsg('Sending to YTSoundboard… this can take a few seconds.');
     chrome.runtime.sendMessage({
       type: 'clip',
       payload: {
         url: `https://www.youtube.com/watch?v=${st.videoId}`,
-        start: st.start, end: st.end, name: $('in-name').value.trim(), key: st.hotkey
+        start: st.start, end: st.end, name: $('in-name').value.trim(), key: st.hotkey, thumbnail: $('in-thumb').checked
       }
     }, (res) => {
       btn.disabled = false;

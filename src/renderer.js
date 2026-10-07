@@ -207,6 +207,13 @@ function drawMeter() {
 }
 
 // ---------- UI ----------
+const thumbCache = new Map();   // sound id -> data URL
+async function applyThumb(card, id) {
+  if (!thumbCache.has(id)) thumbCache.set(id, await window.api.readThumb(id));
+  const url = thumbCache.get(id);
+  if (url) card.style.backgroundImage = `linear-gradient(rgba(20,22,28,.35), rgba(20,22,28,.6)), url("${url}")`;
+}
+
 function renderGrid() {
   const grid = $('#grid');
   grid.textContent = '';
@@ -220,6 +227,7 @@ function renderGrid() {
   for (const s of state.sounds) {
     const card = document.createElement('div');
     card.className = 'card'; card.dataset.id = s.id;
+    if (s.thumb) applyThumb(card, s.id);
 
     const name = document.createElement('input');
     name.className = 'name'; name.value = s.name; name.maxLength = 80;
@@ -289,7 +297,7 @@ function renderSettings() {
   sk.classList.toggle('unset', !s.stopKey);
 
   const ext = $('#chip-ext');
-  ext.textContent = `Extension port ${state.port}`; ext.className = 'chip ok';
+  ext.textContent = 'Extension port'; ext.className = 'chip ok';
   const t = $('#chip-tools');
   const ok = state.tools.ytdlp && state.tools.ffmpeg;
   t.textContent = ok ? 'Clipper ready' : !state.tools.ffmpeg ? 'ffmpeg missing' : 'yt-dlp will install on first clip';
@@ -353,6 +361,11 @@ function bindControls() {
   window.api.onTrigger(play);
   window.api.onStopAll(stopAll);
   window.api.onToast(toast);
+  window.api.onUpdateReady((version) => {
+    const b = $('#btn-update');
+    b.textContent = `Update ${version} ready: restart`; b.hidden = false;
+  });
+  $('#btn-update').addEventListener('click', () => window.api.installUpdate());
 }
 
 (async function init() {
