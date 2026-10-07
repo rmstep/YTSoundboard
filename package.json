@@ -23,6 +23,7 @@
     "directories": {
       "output": "dist"
     },
+    "publish": { "provider": "github", "owner": "rmstep", "repo": "YTSoundboard" },
     "files": [
       "main.js",
       "preload.js",
