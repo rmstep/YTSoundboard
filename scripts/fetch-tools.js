@@ -26,9 +26,14 @@ function download(url, dest, redirects = 5) {
 
 (async () => {
   const ytdlp = path.join(out, 'yt-dlp.exe');
-  if (!fs.existsSync(ytdlp)) {
-    console.log('Downloading yt-dlp…');
-    await download('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', ytdlp);
+  // Always take the newest yt-dlp so each installer ships a current one (YouTube breaks old versions).
+  console.log('Downloading latest yt-dlp…');
+  try {
+    await download('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', ytdlp + '.new');
+    fs.renameSync(ytdlp + '.new', ytdlp);
+  } catch (e) {
+    if (!fs.existsSync(ytdlp)) throw e;
+    console.warn('Could not refresh yt-dlp, using the cached copy:', e.message);
   }
   fs.copyFileSync(require('ffmpeg-static'), path.join(out, 'ffmpeg.exe'));
   fs.writeFileSync(path.join(out, 'THIRD-PARTY.txt'),

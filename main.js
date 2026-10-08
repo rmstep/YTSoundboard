@@ -9,7 +9,7 @@ const vbcable = require('./lib/vbcable');
 const { startServer, PORT } = require('./lib/server');
 
 const SETTING_KEYS = ['micDeviceId', 'cableDeviceId', 'speakerDeviceId', 'micDeviceLabel', 'cableDeviceLabel',
-  'speakerDeviceLabel', 'cableChosen', 'micEnabled', 'monitorMic',
+  'speakerDeviceLabel', 'cableChosen', 'cablePrompted', 'micEnabled', 'monitorMic',
   'masterVolume', 'micGain', 'soundsToMic', 'soundsToSpeakers', 'retrigger', 'stopKey'];
 
 let store, win, tray, quitting = false, hotkeyIssues = {}, soundsDir;
@@ -193,7 +193,7 @@ if (!app.requestSingleInstanceLock()) {
     store = new Store(app.getPath('userData'));
     soundsDir = path.join(app.getPath('userData'), 'sounds');
     fs.mkdirSync(soundsDir, { recursive: true });
-    yt.init(path.join(app.getPath('userData'), 'bin'));
+    yt.init(path.join(app.getPath('userData'), 'bin'), app.getVersion());
 
     startServer({
       onClip: handleClip,
@@ -277,20 +277,36 @@ if (!app.requestSingleInstanceLock()) {
 
     ipcMain.handle('extension:setup', () => setupExtension());
 
-    // First run of an installed copy: offer the extension setup once.
-    if (app.isPackaged && !store.data.settings.extPrompted) {
-      win.webContents.once('did-finish-load', () => setTimeout(async () => {
-        const r = await dialog.showMessageBox(win, {
-          type: 'question', buttons: ['Set up now', 'Later'], defaultId: 0, cancelId: 1,
-          title: 'Welcome to YTSoundboard',
-          message: 'Add the Chrome extension?',
-          detail: 'The extension lets you clip sounds from YouTube. You can also do this later from the sidebar.'
-        });
-        store.data.settings.extPrompted = true;
-        store.save();
-        if (r.response === 0) setupExtension();
-      }, 1500));
-    }
+    // First-run prompts. The window drives them in order (virtual mic, then extension) so dialogs never overlap.
+    ipcMain.handle('firstrun:cable', async () => {
+      const r = await dialog.showMessageBox(win, {
+        type: 'question', buttons: ['Install now', 'Later'], defaultId: 0, cancelId: 1,
+        title: 'Welcome to YTSoundboard',
+        message: 'Install the virtual microphone?',
+        detail: 'YTSoundboard needs a free virtual audio cable (VB-Cable) so Discord, games and OBS can hear your sounds. ' +
+          'It is downloaded from vb-audio.com and takes a minute. Windows will ask for permission.\n\n' +
+          'You can also do this later with the button in the sidebar.'
+      });
+      store.data.settings.cablePrompted = true;   // not asked again until the cable has been seen and removed
+      store.save();
+      broadcast();
+      if (r.response === 0) {
+        try { await vbcable.install((m) => send('toast', m)); } catch (e) { send('toast', 'Virtual mic install failed: ' + e.message); }
+      }
+    });
+
+    ipcMain.handle('firstrun:extension', async () => {
+      if (!app.isPackaged || store.data.settings.extPrompted) return;
+      const r = await dialog.showMessageBox(win, {
+        type: 'question', buttons: ['Set up now', 'Later'], defaultId: 0, cancelId: 1,
+        title: 'Welcome to YTSoundboard',
+        message: 'Add the Chrome extension?',
+        detail: 'The extension lets you clip sounds from YouTube. You can also do this later from the sidebar.'
+      });
+      store.data.settings.extPrompted = true;
+      store.save();
+      if (r.response === 0) setupExtension();
+    });
 
     ipcMain.handle('streamdeck:install', async () => {
       const p = streamDeckPluginPath();

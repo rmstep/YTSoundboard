@@ -318,8 +318,18 @@ async function onState(next) {
   renderSettings();
   const devs = await renderDevices();
 
-  // Offer the installer when no virtual cable exists.
-  $('#btn-cable').hidden = devs.some((d) => d.kind === 'audiooutput' && /cable input/i.test(d.label));
+  // Offer the installer when no virtual cable exists, and ask on first launch.
+  const hasCable = devs.some((d) => d.kind === 'audiooutput' && /cable input/i.test(d.label));
+  $('#btn-cable').hidden = hasCable;
+  // Re-arm the prompt once a cable has been seen, so a later removal + reinstall asks again.
+  if (hasCable && state.settings.cablePrompted) window.api.setSettings({ cablePrompted: false });
+  if (!onState.firstRun) {
+    onState.firstRun = true;
+    (async () => {
+      if (!hasCable && !state.settings.cablePrompted) await window.api.firstRunCable();
+      await window.api.firstRunExtension();
+    })();
+  }
 
   // Chromium issues new device ids each launch, so re-find saved devices by name. The virtual
   // cable is picked automatically unless the user deliberately chose "none".
