@@ -33,7 +33,9 @@ button.primary-inline { background: var(--ok); border-color: var(--ok); color: #
 .row input[type=range] { flex: 1; min-width: 0; }
 .keybtn { min-width: 90px; font-family: Consolas, monospace; font-size: 12px; }
 .keybtn.unset { color: var(--dim); }
-.card .play { background: var(--accent); border-color: var(--accent); color: #fff; }
+.card .play { width: 36px; height: 36px; flex: none; padding: 0 0 0 2px; border-radius: 50%; display: grid; place-items: center;
+              font-size: 14px; background: #ff0000; border-color: #ff0000; color: #fff; }
+.card .play:hover { background: #e60000; border-color: #fff; }
 .card .del { color: var(--dim); padding: 6px 8px; }
 .card .del:hover { color: var(--danger); border-color: var(--danger); }
 .issue { color: var(--warn); font-size: 12px; }
