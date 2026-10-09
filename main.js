@@ -12,6 +12,8 @@ const SETTING_KEYS = ['micDeviceId', 'cableDeviceId', 'speakerDeviceId', 'micDev
   'speakerDeviceLabel', 'cableChosen', 'cablePrompted', 'micEnabled', 'monitorMic',
   'masterVolume', 'micGain', 'soundsToMic', 'soundsToSpeakers', 'retrigger', 'stopKey'];
 
+const EXTENSION_STORE_URL = 'https://chromewebstore.google.com/detail/ytsoundboard-clipper/cdcjmelhnjmfgekefemeiklnlomilhhe';
+
 let store, win, tray, quitting = false, hotkeyIssues = {}, soundsDir;
 
 function publicState() {
@@ -298,15 +300,18 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('firstrun:extension', async () => {
       if (!app.isPackaged || store.data.settings.extPrompted) return;
       const r = await dialog.showMessageBox(win, {
-        type: 'question', buttons: ['Set up now', 'Later'], defaultId: 0, cancelId: 1,
+        type: 'question', buttons: ['Open Chrome Web Store', 'Later'], defaultId: 0, cancelId: 1,
         title: 'Welcome to YTSoundboard',
         message: 'Add the Chrome extension?',
-        detail: 'The extension lets you clip sounds from YouTube. You can also do this later from the sidebar.'
+        detail: 'The extension lets you clip sounds from YouTube. It installs in one click from the Chrome Web Store. ' +
+          'You can also do this later from the sidebar.'
       });
       store.data.settings.extPrompted = true;
       store.save();
-      if (r.response === 0) setupExtension();
+      if (r.response === 0) shell.openExternal(EXTENSION_STORE_URL);
     });
+
+    ipcMain.handle('extension:store', () => shell.openExternal(EXTENSION_STORE_URL));
 
     ipcMain.handle('streamdeck:install', async () => {
       const p = streamDeckPluginPath();

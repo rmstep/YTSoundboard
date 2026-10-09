@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
   "name": "YTSoundboard Clipper",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Clip YouTube moments into hotkey sounds. Needs the free YTSoundboard app: github.com/rmstep/YTSoundboard-releases",
   "host_permissions": ["http://127.0.0.1:38917/*"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*", "https://m.youtube.com/*"],
-      "js": ["content.js"],
+      "js": ["heat.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

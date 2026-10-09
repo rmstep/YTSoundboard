@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   suspendHotkeys: (on) => ipcRenderer.invoke('hotkeys:suspend', on),
   firstRunCable: () => ipcRenderer.invoke('firstrun:cable'),
   firstRunExtension: () => ipcRenderer.invoke('firstrun:extension'),
+  openExtensionStore: () => ipcRenderer.invoke('extension:store'),
   setupExtension: () => ipcRenderer.invoke('extension:setup'),
   installStreamDeck: () => ipcRenderer.invoke('streamdeck:install'),
   readThumb: (id) => ipcRenderer.invoke('sound:thumb', id),

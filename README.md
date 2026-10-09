@@ -8,7 +8,7 @@ A hotkey soundboard for Windows. Clip a moment from any YouTube video, give it a
 
 - **Desktop app** (Electron): global hotkeys, a library of sounds, and an audio engine built on Web Audio. Each sound plays to two outputs at once: your speakers, and a virtual audio cable that carries your mic plus the sounds.
 - **Virtual mic:** Windows can't redirect a microphone without a driver. The app uses [VB-Cable](https://vb-audio.com/Cable/) (not bundled; the app downloads it from VB-Audio and verifies its signature). In Discord/OBS/games, choose **CABLE Output** as the microphone.
-- **Chrome extension** (`extension/`): adds a clip picker on youtube.com. It sends the video id and times to the app over `127.0.0.1:38917`, and the app cuts the audio with yt-dlp and ffmpeg.
+- **Chrome extension** (`extension/`, [on the Chrome Web Store](https://chromewebstore.google.com/detail/ytsoundboard-clipper/cdcjmelhnjmfgekefemeiklnlomilhhe)): adds a clip picker on youtube.com. It defaults the clip to the most replayed 7 seconds (read from YouTube's replay graph, see `extension/heat.js`), then sends the video id and times to the app over `127.0.0.1:38917`, and the app cuts the audio with yt-dlp and ffmpeg.
 - **Stream Deck plugin** (`streamdeck-plugin/`): "Play Sound" and "Stop All" keys that show each sound's name and thumbnail.
 - **Auto-update:** installed copies check [YTSoundboard-releases](https://github.com/rmstep/YTSoundboard-releases) via electron-updater.
 
@@ -22,7 +22,7 @@ npm start          # run the app
 npm run dist       # build the installer into dist/
 ```
 
-Load the extension for development: `chrome://extensions` → Developer mode → Load unpacked → `extension/`.
+Load the extension for development: `chrome://extensions` → Developer mode → Load unpacked → `extension/`. Run the unit tests with `npm test`.
 
 ### Releasing
 

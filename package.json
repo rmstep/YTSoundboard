@@ -1,6 +1,6 @@
 {
   "name": "ytsoundboard",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Hotkey soundboard that mixes into a virtual microphone and your speakers, fed by a YouTube clipper Chrome extension.",
   "author": "rmstep",
   "homepage": "https://github.com/rmstep/YTSoundboard#readme",
@@ -9,6 +9,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test": "node test/heat.test.js",
     "icons": "node assets/make-icons.js",
     "tools": "node scripts/fetch-tools.js",
     "extension-zip": "node scripts/pack-extension.js",

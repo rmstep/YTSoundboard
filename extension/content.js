@@ -80,16 +80,22 @@
     .msg.err { color:#ff7b80; } .msg.ok { color:#3fb950; }
     label.check { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:#e8eaf0; cursor:pointer; }
     label.check input { width:auto; margin:0; }
-    .dur { color:#8b92a5; text-align:right; font-size:12px; margin:-6px 0 8px; }
+    .meta { display:flex; justify-content:space-between; align-items:center; margin:-6px 0 8px; min-height:18px; }
+    .dur { color:#8b92a5; font-size:12px; margin-left:auto; }
+    button.link { background:none; border:0; color:#ff8a8a; cursor:pointer; font-size:12px; padding:0; width:auto; }
+    button.link:hover { text-decoration:underline; }
+    .heat { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .heat path { fill:#e5484d55; }
   </style>
   <div class="panel" id="panel">
     <div class="head"><span class="dot" id="dot"></span><span>YTSoundboard clipper</span></div>
     <div class="title" id="title"></div>
     <div class="track" id="track">
+      <svg class="heat" viewBox="0 0 100 34" preserveAspectRatio="none"><path id="heat-path" d=""/></svg>
       <div class="rail"></div><div class="sel" id="sel"></div><div class="head-pos" id="pos"></div>
       <div class="handle" id="h-start"></div><div class="handle end" id="h-end"></div>
     </div>
-    <div class="dur" id="dur"></div>
+    <div class="meta"><button class="link" id="btn-peak" hidden title="Jump to the most replayed part of the video">★ Most replayed</button><span class="dur" id="dur"></span></div>
     <div class="times">
       <div><label>Start</label><div class="inline"><input id="in-start"><button id="now-start" title="Use current playback time">now</button></div></div>
       <div><label>End</label><div class="inline"><input id="in-end"><button id="now-end" title="Use current playback time">now</button></div></div>
@@ -111,11 +117,54 @@
   for (const type of ['keydown', 'keyup', 'keypress']) root.addEventListener(type, (e) => e.stopPropagation());
 
   const $ = (id) => root.getElementById(id);
-  const st = { start: 0, end: 10, duration: 0, previewTimer: null, hotkey: '', videoId: null };
+  const DEFAULT_CLIP = 7;   // seconds
+  const st = { start: 0, end: DEFAULT_CLIP, duration: 0, previewTimer: null, hotkey: '', videoId: null, heat: null, edited: false };
+
+  // --- most replayed: default the clip to the hottest 7 seconds when YouTube has replay data ---
+  const heatCache = new Map();   // video id -> heat map or null
+  async function loadHeat(id) {
+    if (heatCache.has(id)) return heatCache.get(id);
+    let heat = null;
+    try {
+      const res = await fetch(`https://www.youtube.com/watch?v=${id}`, { credentials: 'same-origin' });
+      if (res.ok) heat = window.YTSHeat.parseHeat(await res.text());
+    } catch { /* offline or blocked: just no default */ }
+    heatCache.set(id, heat);
+    return heat;
+  }
+
+  function showHeat() {
+    $('heat-path').setAttribute('d', st.heat ? window.YTSHeat.areaPath(st.heat, st.duration, 100, 34) : '');
+    $('btn-peak').hidden = !st.heat;
+  }
+
+  function applyPeak() {
+    if (!st.heat) return;
+    const w = window.YTSHeat.bestWindow(st.heat, st.duration, DEFAULT_CLIP);
+    st.start = w.start; st.end = w.end;
+    render();
+  }
+
+  // While an ad plays, the page's <video> is the ad: its length and playback time are not the video's.
+  const isAd = () => !!document.querySelector('.html5-video-player.ad-showing');
+
+  // The real video length from the page metadata (ISO 8601, e.g. PT4M56S).
+  function metaDuration() {
+    const m = (document.querySelector('meta[itemprop="duration"]') || {}).content || '';
+    const p = m.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+    return p ? (Number(p[1] || 0) * 3600 + Number(p[2] || 0) * 60 + Number(p[3] || 0)) : 0;
+  }
 
   function duration() {
+    if (isAd()) return metaDuration();
     const v = getVideo();
-    return v && Number.isFinite(v.duration) ? v.duration : 0;
+    return v && Number.isFinite(v.duration) ? v.duration : metaDuration();
+  }
+
+  // Playback controls (now / preview / seek) only make sense on the real video, not an ad.
+  function realVideo() {
+    if (isAd()) { setMsg('An ad is playing. Wait for it to finish, then try again.', 'err'); return null; }
+    return getVideo();
   }
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
@@ -138,16 +187,28 @@
   function syncVideo() {
     const id = getVideoId();
     if (id !== st.videoId) {
-      st.videoId = id;
-      $('in-name').value = getTitle().slice(0, 60);
+      st.videoId = id; st.edited = false; st.heat = null; st.nameEdited = false;
+      showHeat();
       const d = duration();
-      st.start = 0; st.end = Math.min(d || 10, 10);
+      st.start = 0; st.end = Math.min(d || DEFAULT_CLIP, DEFAULT_CLIP);
+      if (id) loadHeat(id).then((heat) => {
+        if (st.videoId !== id) return;   // the user moved on to another video
+        st.heat = heat;
+        st.duration = duration();
+        showHeat();
+        if (heat && !st.edited) { applyPeak(); setMsg('Set to the most replayed 7 seconds.', 'ok'); }
+      });
     }
     st.duration = duration();
     if (st.end > st.duration && st.duration) st.end = st.duration;
+    // YouTube updates the page title a moment after the video changes, so keep following it
+    // until the user types their own name.
+    if (!st.nameEdited && id) $('in-name').value = getTitle().slice(0, 60);
     $('title').textContent = id ? getTitle() : 'Open a video to make a clip';
     render();
   }
+
+  $('in-name').addEventListener('input', () => { st.nameEdited = true; });
 
   // --- draggable handles ---
   function drag(handle, which) {
@@ -157,6 +218,7 @@
       const rect = $('track').getBoundingClientRect();
       const move = (ev) => {
         const t = clamp((ev.clientX - rect.left) / rect.width, 0, 1) * st.duration;
+        st.edited = true;
         if (which === 'start') st.start = clamp(t, 0, st.end - 0.1);
         else st.end = clamp(t, st.start + 0.1, st.duration);
         render();
@@ -164,7 +226,7 @@
       const up = () => {
         handle.removeEventListener('pointermove', move);
         handle.removeEventListener('pointerup', up);
-        const v = getVideo();
+        const v = isAd() ? null : getVideo();
         if (v) v.currentTime = which === 'start' ? st.start : Math.max(st.start, st.end - 1);
       };
       handle.addEventListener('pointermove', move);
@@ -176,24 +238,34 @@
 
   // --- text inputs / "now" buttons ---
   $('in-start').addEventListener('change', () => {
+    st.edited = true;
     const t = parse($('in-start').value);
     if (Number.isFinite(t)) st.start = clamp(t, 0, Math.max(0, st.duration - 0.1));
     if (st.end <= st.start) st.end = Math.min(st.duration, st.start + 5);
     render();
   });
   $('in-end').addEventListener('change', () => {
+    st.edited = true;
     const t = parse($('in-end').value);
     if (Number.isFinite(t)) st.end = clamp(t, st.start + 0.1, st.duration || t);
     render();
   });
+  $('btn-peak').addEventListener('click', () => {
+    st.edited = true;
+    applyPeak();
+    const v = isAd() ? null : getVideo(); if (v) v.currentTime = st.start;
+    setMsg('Set to the most replayed 7 seconds.', 'ok');
+  });
   $('now-start').addEventListener('click', () => {
-    const v = getVideo(); if (!v) return;
+    const v = realVideo(); if (!v) return;
+    st.edited = true;
     st.start = clamp(v.currentTime, 0, st.duration);
     if (st.end <= st.start) st.end = Math.min(st.duration, st.start + 5);
     render();
   });
   $('now-end').addEventListener('click', () => {
-    const v = getVideo(); if (!v) return;
+    const v = realVideo(); if (!v) return;
+    st.edited = true;
     st.end = clamp(v.currentTime, st.start + 0.1, st.duration);
     render();
   });
@@ -201,7 +273,7 @@
   // --- playhead ---
   setInterval(() => {
     const v = getVideo();
-    if (v && st.duration) $('pos').style.left = (v.currentTime / st.duration) * 100 + '%';
+    if (v && st.duration && !isAd()) $('pos').style.left = (v.currentTime / st.duration) * 100 + '%';
   }, 100);
 
   // --- preview ---
@@ -210,7 +282,7 @@
     $('btn-preview').textContent = '▶ Preview';
   }
   $('btn-preview').addEventListener('click', () => {
-    const v = getVideo(); if (!v) return;
+    const v = realVideo(); if (!v) return;
     if (st.previewTimer) { v.pause(); return stopPreview(); }
     v.currentTime = st.start; v.play();
     $('btn-preview').textContent = '■ Stop';

@@ -23,6 +23,16 @@ The extension talks only to the app running on your own computer. No accounts, n
 - Small promo tile 440x280 (required by the dashboard).
 - Store icon 128x128 is already in the package.
 
+## Update 1.2.0 (what to enter when submitting the update)
+
+**What's new:** The clip now defaults to the most replayed 7 seconds of the video (using YouTube's own replay graph), shows that graph on the timeline, and has a "Most replayed" button to jump back to it. Also fixes the clip length being read from an ad, and the sound name lagging behind the video title.
+
+**Permissions:** unchanged. The extension requests the video's own watch page from youtube.com (same origin, no new host permission) to read the replay graph. Mention this in the permission justification:
+```
+The extension also reads YouTube's "Most replayed" graph by requesting the current video's own watch page from youtube.com (same site it already runs on) to suggest a default start time. The data is used locally and never stored or sent anywhere.
+```
+The privacy policy has been updated to say so (last updated October 8, 2026).
+
 ## Privacy tab
 
 **Single purpose:** Let the user select a start and end time on a YouTube video and send that clip to the YTSoundboard desktop app on their computer.

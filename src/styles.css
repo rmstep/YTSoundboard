@@ -28,6 +28,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .card .name { width: 100%; background: #fff; color: #000; border: 1px solid #fff; border-radius: 4px; padding: 4px 8px; font-weight: 600; }
 .card .name:focus { border-color: var(--accent); outline: none; }
 .note { display: block; margin-top: 4px; color: var(--dim); font-size: 11px; }
+button.link-btn { background: none; border: 0; padding: 4px 0; margin-top: 4px; color: var(--dim); font-size: 12px; text-decoration: underline; }
+button.link-btn:hover { color: var(--text); }
 button.primary-inline { background: var(--ok); border-color: var(--ok); color: #fff; }
 .row { display: flex; align-items: center; gap: 8px; }
 .row input[type=range] { flex: 1; min-width: 0; }
