@@ -185,11 +185,28 @@ function play(id) {
   }
   voices.set(id, [...(voices.get(id) || []), voice]);
   voice.nodes.forEach((n) => n.start());
+  // Restart the card's sweep: the ring should complete one lap by the time this sound ends.
+  playStarts.set(id, { t0: performance.now(), dur: buf.duration });
+  const card = document.querySelector(`.card[data-id="${id}"]`);
+  if (card) { card.classList.remove('playing'); void card.offsetWidth; }
   renderPlaying();
 }
 
+const playStarts = new Map();   // sound id -> { t0: when the latest play began (ms), dur: sound length (s) }
+
 function renderPlaying() {
-  document.querySelectorAll('.card').forEach((c) => c.classList.toggle('playing', voices.has(c.dataset.id)));
+  document.querySelectorAll('.card').forEach((c) => {
+    const id = c.dataset.id, on = voices.has(id);
+    if (on && !c.classList.contains('playing')) {
+      // A negative delay resumes the sweep mid-lap if the card was rebuilt while the sound played.
+      const p = playStarts.get(id);
+      if (p) {
+        c.style.setProperty('--dur', p.dur + 's');
+        c.style.setProperty('--delay', -((performance.now() - p.t0) / 1000) + 's');
+      }
+    }
+    c.classList.toggle('playing', on);
+  });
 }
 
 function drawMeter() {
