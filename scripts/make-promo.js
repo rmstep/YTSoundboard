@@ -71,10 +71,18 @@ async function render(html, w, h, file) {
   fs.writeFileSync(file, img.toJPEG(95));   // JPEG: no alpha channel, as the store requires
 }
 
+// Link-preview image (Open Graph / GitHub social preview): the marquee layout at 1200x630.
+const og = marquee.replace('</style>', `
+  body { width: 1200px; height: 630px; padding: 0 70px; gap: 40px; }
+  .left img { width: 120px; height: 120px; } h1 { font-size: 70px; } .left p { font-size: 26px; }
+  .pill { font-size: 17px; } .grid { grid-template-columns: 230px 230px; gap: 18px; } .card { width: 230px; height: 160px; }
+</style>`);
+
 app.whenReady().then(async () => {
   const out = path.join(root, 'store-assets');
   fs.mkdirSync(out, { recursive: true });
   await render(small, 440, 280, path.join(out, 'promo-small-440x280.jpg'));
   await render(marquee, 1400, 560, path.join(out, 'promo-marquee-1400x560.jpg'));
+  await render(og, 1200, 630, path.join(out, 'social-preview-1200x630.jpg'));
   app.quit();
 });

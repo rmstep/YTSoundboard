@@ -2,7 +2,7 @@
 
 A hotkey soundboard for Windows. Clip a moment from any YouTube video, give it a key, and play it into your microphone (Discord, games, OBS) and your speakers at the same time. Works with Stream Deck.
 
-**[Download the installer](https://github.com/rmstep/YTSoundboard-releases/releases/latest)** · [Privacy policy](https://github.com/rmstep/YTSoundboard-releases/blob/main/PRIVACY.md) · MIT licensed
+**[Website](https://rmstep.github.io/YTSoundboard-releases/)** · **[Download the installer](https://github.com/rmstep/YTSoundboard-releases/releases/latest)** · [Chrome extension](https://chromewebstore.google.com/detail/ytsoundboard-clipper/cdcjmelhnjmfgekefemeiklnlomilhhe) · [Privacy policy](https://github.com/rmstep/YTSoundboard-releases/blob/main/PRIVACY.md) · MIT licensed
 
 ## How it works
 
