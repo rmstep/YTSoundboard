@@ -207,6 +207,23 @@ function drawMeter() {
 }
 
 // ---------- UI ----------
+// iOS-style share glyph: a box open at the top with an arrow leaving it.
+const SHARE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/>' +
+  '<path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+
+let shareFor = null;   // sound id the open share menu belongs to
+function closeShareMenu() { $('#share-menu').hidden = true; shareFor = null; }
+function toggleShareMenu(anchor, id) {
+  const menu = $('#share-menu');
+  if (!menu.hidden && shareFor === id) return closeShareMenu();
+  shareFor = id;
+  menu.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = r.bottom + 6 + 'px';
+  menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+}
+
 const thumbCache = new Map();   // sound id -> data URL
 async function applyThumb(card, id) {
   if (!thumbCache.has(id)) thumbCache.set(id, await window.api.readThumb(id));
@@ -253,7 +270,12 @@ function renderGrid() {
     vol.type = 'range'; vol.min = 0; vol.max = 2; vol.step = 0.01; vol.value = s.volume ?? 1; vol.title = 'Sound volume';
     vol.addEventListener('change', () => window.api.updateSound(s.id, { volume: Number(vol.value) }));
 
-    const r1 = document.createElement('div'); r1.className = 'row'; r1.append(play$, keyBtn, del);
+    const share = document.createElement('button');
+    share.className = 'share'; share.title = 'Share'; share.setAttribute('aria-label', 'Share ' + s.name);
+    share.innerHTML = SHARE_ICON;
+    share.addEventListener('click', (e) => { e.stopPropagation(); toggleShareMenu(share, s.id); });
+
+    const r1 = document.createElement('div'); r1.className = 'row'; r1.append(play$, keyBtn, share, del);
     const r2 = document.createElement('div'); r2.className = 'row'; r2.append(vol);
     card.append(name, r1, r2);
     if (state.issues[s.id]) {
@@ -382,6 +404,10 @@ function bindControls() {
   $('#btn-add').addEventListener('click', () => window.api.importSounds());
   $('#btn-install').addEventListener('click', () => { toast('Downloading yt-dlp…'); window.api.installTools(); });
 
+  $('#menu-discord').addEventListener('click', () => { const id = shareFor; closeShareMenu(); if (id) window.api.exportDiscord(id); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#share-menu')) closeShareMenu(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeShareMenu(); });
+  window.addEventListener('blur', closeShareMenu);
   $('#btn-extension-store').addEventListener('click', () => window.api.openExtensionStore());
   $('#btn-extension').addEventListener('click', () => window.api.setupExtension());
   $('#btn-streamdeck').addEventListener('click', () => window.api.installStreamDeck());

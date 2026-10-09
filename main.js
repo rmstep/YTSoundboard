@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const Store = require('./lib/store');
 const yt = require('./lib/ytdlp');
 const vbcable = require('./lib/vbcable');
+const { exportForDiscord, sanitize: sanitizeName } = require('./lib/discordExport');
 const { startServer, PORT } = require('./lib/server');
 
 const SETTING_KEYS = ['micDeviceId', 'cableDeviceId', 'speakerDeviceId', 'micDeviceLabel', 'cableDeviceLabel',
@@ -312,6 +313,22 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     ipcMain.handle('extension:store', () => shell.openExternal(EXTENSION_STORE_URL));
+
+    // Share menu: save the sound as an MP3 Discord accepts, under its real name, and show it in Explorer.
+    ipcMain.handle('sound:export-discord', async (_e, id) => {
+      const s = store.data.sounds.find((x) => x.id === id);
+      if (!s) return;
+      const clash = store.data.sounds.some((o) => o.id !== id && sanitizeName(o.name) === sanitizeName(s.name));
+      try {
+        const r = await exportForDiscord({
+          srcPath: path.join(soundsDir, path.basename(s.file)), name: s.name,
+          outDir: path.join(app.getPath('documents'), 'YTSoundboard', 'Discord exports'),
+          suffix: clash ? id.slice(0, 4) : ''
+        });
+        shell.showItemInFolder(r.file);
+        send('toast', `Saved ${path.basename(r.file)} (${r.seconds.toFixed(1)}s). In Discord: Server Settings → Soundboard → Upload.`);
+      } catch (e) { send('toast', 'Export failed: ' + e.message); }
+    });
 
     ipcMain.handle('streamdeck:install', async () => {
       const p = streamDeckPluginPath();
