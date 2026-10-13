@@ -18,6 +18,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(msg.payload)
     }).then(sendResponse);
+  } else if (msg.type === 'clipAudio') {
+    call('/clip-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg.payload)
+    }).then(sendResponse);
   } else {
     return false;
   }

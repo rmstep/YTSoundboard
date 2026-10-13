@@ -301,24 +301,47 @@
   });
 
   // --- send to app ---
-  $('btn-add').addEventListener('click', () => {
+  // One request to the app via the background script, as a promise.
+  const request = (type, payload) => new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type, payload }, (res) => {
+      resolve(chrome.runtime.lastError || !res ? { ok: false, error: 'Could not reach the extension background.' } : res);
+    });
+  });
+
+  // Backup capture for videos the app can't download (age-restricted ones need a signed-in viewer):
+  // play the clip in this tab and record what the player plays, then send the audio to the app.
+  async function recordAndSend(payload) {
+    if (isAd()) return { ok: false, error: 'An ad is playing. Wait for it to finish, then try again.' };
+    const video = getVideo();
+    if (!video) return { ok: false, error: 'No video was found on this page.' };
+    stopPreview();
+    try {
+      const blob = await window.YTSRecord.recordRange(video, payload.start, payload.end, {
+        onProgress: (t, total) => setMsg(`Age-restricted video: recording from the player… ${t.toFixed(1)} / ${total.toFixed(1)} s. Keep this tab open.`),
+        isBlocked: () => (isAd() ? 'An ad started playing, so the recording was stopped. Try again.' : '')
+      });
+      setMsg('Sending the recording to YTSoundboard…');
+      return await request('clipAudio', { ...payload, audio: await window.YTSRecord.blobToBase64(blob) });
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  $('btn-add').addEventListener('click', async () => {
     const len = st.end - st.start;
     if (!st.videoId) return setMsg('Open a video first.', 'err');
     if (len <= 0 || len > MAX_CLIP) return setMsg(`Clip must be between 0 and ${MAX_CLIP} seconds.`, 'err');
     const btn = $('btn-add');
     btn.disabled = true; setMsg('Sending to YTSoundboard… this can take a few seconds.');
-    chrome.runtime.sendMessage({
-      type: 'clip',
-      payload: {
-        url: `https://www.youtube.com/watch?v=${st.videoId}`,
-        start: st.start, end: st.end, name: $('in-name').value.trim(), key: st.hotkey, thumbnail: $('in-thumb').checked
-      }
-    }, (res) => {
-      btn.disabled = false;
-      if (chrome.runtime.lastError || !res) return setMsg('Could not reach the extension background.', 'err');
-      if (!res.ok) return setMsg(res.error || 'Failed.', 'err');
-      setMsg(res.warning || `Added "${res.sound.name}" to your soundboard.`, res.warning ? 'err' : 'ok');
-    });
+    const payload = {
+      url: `https://www.youtube.com/watch?v=${st.videoId}`,
+      start: st.start, end: st.end, name: $('in-name').value.trim(), key: st.hotkey, thumbnail: $('in-thumb').checked
+    };
+    let res = await request('clip', payload);
+    if (!res.ok && res.code === 'age_restricted') res = await recordAndSend(payload);
+    btn.disabled = false;
+    if (!res.ok) return setMsg(res.error || 'Failed.', 'err');
+    setMsg(res.warning || `Added "${res.sound.name}" to your soundboard.`, res.warning ? 'err' : 'ok');
   });
 
   // --- connection status ---

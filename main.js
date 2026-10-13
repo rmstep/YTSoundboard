@@ -52,7 +52,36 @@ function addSound({ name, file, key = '', source, thumb }) {
 async function handleClip({ url, start, end, name, key, thumbnail }) {
   const id = crypto.randomUUID();
   send('toast', 'Downloading clip…');
-  const file = await yt.downloadClip({ url, start, end, outDir: soundsDir, id });
+  let file;
+  try {
+    file = await yt.downloadClip({ url, start, end, outDir: soundsDir, id });
+  } catch (e) {
+    // Age-restricted videos need a signed-in viewer. Flag it so the extension can record from the player instead.
+    if (/sign in to confirm your age|age[- ]restricted/i.test(e.message)) {
+      const err = new Error('This video is age-restricted, so it will be recorded from the player instead.');
+      err.code = 'age_restricted';
+      throw err;
+    }
+    throw e;
+  }
+  return finishClip({ id, file, url, start, end, name, key, thumbnail });
+}
+
+// Audio the extension recorded from the player (used when yt-dlp can't fetch the video without a login).
+async function handleClipAudio({ audio, url, start, end, name, key, thumbnail }) {
+  if (!audio || !audio.length) throw new Error('No audio was received');
+  yt.canonicalUrl(url);            // only YouTube URLs
+  yt.validateRange(start, end);
+  const id = crypto.randomUUID();
+  send('toast', 'Processing recorded clip…');
+  const tmp = path.join(soundsDir, id + '.rec');
+  fs.writeFileSync(tmp, audio);
+  try { await yt.audioToWav(tmp, path.join(soundsDir, id + '.wav')); }
+  finally { try { fs.unlinkSync(tmp); } catch { /* already gone */ } }
+  return finishClip({ id, file: id + '.wav', url, start, end, name, key, thumbnail });
+}
+
+async function finishClip({ id, file, url, start, end, name, key, thumbnail }) {
   let thumb;
   const warnings = [];
   if (thumbnail) {
@@ -200,6 +229,7 @@ if (!app.requestSingleInstanceLock()) {
 
     startServer({
       onClip: handleClip,
+      onClipAudio: handleClipAudio,
       getInfo: () => ({ sounds: store.data.sounds.length, tools: yt.status() }),
       api: {
         list: () => store.data.sounds.map((s) => ({ id: s.id, name: s.name, key: s.key, thumb: !!s.thumb })),
