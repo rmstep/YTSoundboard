@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const Store = require('./lib/store');
 const yt = require('./lib/ytdlp');
 const vbcable = require('./lib/vbcable');
+const hotkeys = require('./lib/hotkeys');
 const { exportForDiscord, sanitize: sanitizeName } = require('./lib/discordExport');
 const { startServer, PORT } = require('./lib/server');
 
@@ -26,14 +27,13 @@ function send(channel, payload) {
 function broadcast() { send('state', publicState()); }
 
 function registerHotkeys() {
-  globalShortcut.unregisterAll();
+  hotkeys.unregisterAll();
   hotkeyIssues = {};
   const used = new Set();
   const bind = (key, issueId, fn) => {
     if (!key) return;
     if (used.has(key)) { hotkeyIssues[issueId] = `"${key}" is already assigned to another sound`; return; }
-    let ok = false;
-    try { ok = globalShortcut.register(key, fn); } catch { /* invalid accelerator */ }
+    const ok = hotkeys.register(key, fn);
     if (ok) used.add(key); else hotkeyIssues[issueId] = `"${key}" could not be registered (in use by another app?)`;
   };
   for (const s of store.data.sounds) bind(s.key, s.id, () => send('trigger', s.id));
@@ -306,7 +306,7 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
 
-    ipcMain.handle('hotkeys:suspend', (_e, on) => { if (on) globalShortcut.unregisterAll(); else registerHotkeys(); });
+    ipcMain.handle('hotkeys:suspend', (_e, on) => { if (on) hotkeys.unregisterAll(); else registerHotkeys(); });
 
     ipcMain.handle('extension:setup', () => setupExtension());
 
@@ -378,6 +378,6 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on('before-quit', () => { quitting = true; });
-  app.on('will-quit', () => globalShortcut.unregisterAll());
+  app.on('will-quit', () => hotkeys.shutdown());
   app.on('window-all-closed', () => { /* stay in tray */ });
 }
