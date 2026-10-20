@@ -229,16 +229,132 @@ const SHARE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" 
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/>' +
   '<path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
 
+// Only sounds clipped from YouTube keep the recipe (video, start, end) a share link needs.
+const isShareable = (s) => !!(s && s.source && s.source.url);
+
 let shareFor = null;   // sound id the open share menu belongs to
 function closeShareMenu() { $('#share-menu').hidden = true; shareFor = null; }
 function toggleShareMenu(anchor, id) {
   const menu = $('#share-menu');
   if (!menu.hidden && shareFor === id) return closeShareMenu();
   shareFor = id;
+  const canLink = isShareable(state.sounds.find((x) => x.id === id));
+  $('#menu-share-one').hidden = !canLink;
+  $('#menu-share-multi').hidden = !canLink;
   menu.hidden = false;
   const r = anchor.getBoundingClientRect();
   menu.style.top = r.bottom + 6 + 'px';
   menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+}
+
+// ---------- multi-select sharing ----------
+let selecting = null;   // Set of picked sound ids while choosing sounds to share, otherwise null
+
+function updateSelectionUi() {
+  if (selecting) for (const id of [...selecting]) if (!isShareable(state.sounds.find((s) => s.id === id))) selecting.delete(id);
+  $('#grid').classList.toggle('selecting', !!selecting);
+  document.querySelectorAll('.card').forEach((c) => c.classList.toggle('picked', !!selecting && selecting.has(c.dataset.id)));
+  $('#select-bar').hidden = !selecting;
+  if (!selecting) return;
+  const n = selecting.size, total = state.sounds.filter(isShareable).length;
+  $('#select-count').textContent = n ? `${n} selected` : 'Select sounds to share';
+  $('#select-share').disabled = n === 0;
+  $('#select-all').textContent = n > 0 && n === total ? 'Select none' : 'Select all';
+}
+function enterSelection(firstId) { closeShareMenu(); selecting = new Set(firstId ? [firstId] : []); updateSelectionUi(); }
+function exitSelection() { selecting = null; updateSelectionUi(); }
+function togglePick(id) {
+  if (!selecting || !isShareable(state.sounds.find((s) => s.id === id))) return;
+  if (!selecting.delete(id)) selecting.add(id);
+  updateSelectionUi();
+}
+
+async function copyShareLinks(ids) {
+  const r = await window.api.shareLinks(ids);
+  if (!r.count) return toast('Nothing to share: only sounds clipped from YouTube can be shared.');
+  const what = r.count === 1 ? 'this sound' : `${r.count} sounds`;
+  toast(r.links > 1 ? `Copied ${r.links} links for ${what}. Paste them in a chat.` : `Copied a link for ${what}. Paste it in a chat.`);
+}
+async function shareSelected() {
+  const ids = state.sounds.filter((s) => selecting && selecting.has(s.id)).map((s) => s.id);   // library order
+  exitSelection();
+  await copyShareLinks(ids);
+}
+
+// ---------- importing shared sounds ----------
+const fmtT = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${(Number.isInteger(s) ? String(s) : s.toFixed(1)).padStart(Number.isInteger(s) ? 2 : 4, '0')}`; };
+let importItems = [];
+let importRunning = false;
+
+function openImport(result) {
+  $('#import-modal').hidden = false;
+  if (result) return showImportReview(result);
+  $('#import-paste').hidden = false; $('#import-review-step').hidden = true;
+  $('#import-text').value = ''; $('#import-text').focus();
+}
+function closeImport() { if (!importRunning) $('#import-modal').hidden = true; }
+
+function importPicked() {
+  return [...document.querySelectorAll('#import-list input:checked')].map((c) => Number(c.dataset.i));
+}
+function updateImportButton() {
+  const n = importPicked().length;
+  $('#import-go').textContent = n === 1 ? 'Import 1 sound' : `Import ${n} sounds`;
+  $('#import-go').disabled = n === 0;
+}
+
+function showImportReview(result) {
+  importItems = result.sounds;
+  $('#import-paste').hidden = true; $('#import-review-step').hidden = false;
+  $('#import-progress').hidden = true; $('#import-result').hidden = true; $('#import-result').textContent = '';
+  $('#import-cancel-2').textContent = 'Cancel';
+  const list = $('#import-list');
+  list.textContent = '';
+  importItems.forEach((e, i) => {
+    const row = document.createElement('label');
+    row.className = 'import-item' + (e.dup ? ' dup' : '');
+    const box = document.createElement('input');
+    box.type = 'checkbox'; box.checked = !e.dup; box.dataset.i = i;
+    box.addEventListener('change', updateImportButton);
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const title = document.createElement('div'); title.className = 'title'; title.textContent = e.name;
+    const sub = document.createElement('div'); sub.className = 'sub';
+    sub.textContent = `${fmtT(e.start)} – ${fmtT(e.end)} · ${(e.end - e.start).toFixed(1)} s` +
+      (e.thumb ? ' · with thumbnail' : '') + (e.dup ? ' · already in your library' : '');
+    meta.append(title, sub);
+    row.append(box, meta);
+    list.append(row);
+  });
+  const n = importItems.length;
+  $('#import-summary').textContent = n
+    ? `${n === 1 ? '1 sound was' : `${n} sounds were`} shared with you. They are re-cut from YouTube on this computer when you import.`
+    : 'No sounds were found in that text.';
+  $('#import-errors').textContent = result.errors.join(' ');
+  $('#import-go').hidden = n === 0; $('#import-go').disabled = false;
+  updateImportButton();
+}
+
+async function reviewPasted() {
+  const text = $('#import-text').value.trim();
+  if (!text) return;
+  showImportReview(await window.api.parseShare(text));
+}
+
+async function runImport() {
+  const picked = importPicked();
+  if (!picked.length) return;
+  importRunning = true;
+  $('#import-go').hidden = true; $('#import-cancel-2').hidden = true;
+  document.querySelectorAll('#import-list input').forEach((c) => { c.disabled = true; });
+  $('#import-progress').hidden = false; $('#import-progress').textContent = 'Starting…';
+  const r = await window.api.runShareImport(picked);
+  importRunning = false;
+  $('#import-progress').hidden = true;
+  const out = $('#import-result');
+  out.hidden = false; out.textContent = '';
+  if (r.added.length) { const d = document.createElement('div'); d.className = 'okline'; d.textContent = `Added ${r.added.length} sound${r.added.length === 1 ? '' : 's'}.`; out.append(d); }
+  for (const f of r.failed) { const d = document.createElement('div'); d.className = 'failline'; d.textContent = `${f.name ? f.name + ': ' : ''}${f.error}`; out.append(d); }
+  $('#import-cancel-2').hidden = false; $('#import-cancel-2').textContent = 'Done';
 }
 
 const thumbCache = new Map();   // sound id -> data URL
@@ -260,8 +376,10 @@ function renderGrid() {
   }
   for (const s of state.sounds) {
     const card = document.createElement('div');
-    card.className = 'card'; card.dataset.id = s.id;
+    card.className = 'card' + (isShareable(s) ? '' : ' unshareable'); card.dataset.id = s.id;
     if (s.thumb) applyThumb(card, s.id);
+    const pick = document.createElement('div'); pick.className = 'pick'; pick.setAttribute('aria-hidden', 'true');
+    card.addEventListener('click', () => { if (selecting) togglePick(s.id); });
 
     const name = document.createElement('input');
     name.className = 'name'; name.value = s.name; name.maxLength = 80;
@@ -294,7 +412,7 @@ function renderGrid() {
 
     const r1 = document.createElement('div'); r1.className = 'row'; r1.append(play$, keyBtn, share, del);
     const r2 = document.createElement('div'); r2.className = 'row'; r2.append(vol);
-    card.append(name, r1, r2);
+    card.append(pick, name, r1, r2);
     if (state.issues[s.id]) {
       const i = document.createElement('div'); i.className = 'issue'; i.textContent = '⚠ ' + state.issues[s.id];
       card.append(i);
@@ -302,6 +420,7 @@ function renderGrid() {
     grid.append(card);
   }
   renderPlaying();
+  updateSelectionUi();
 }
 
 async function renderDevices() {
@@ -423,7 +542,30 @@ function bindControls() {
 
   $('#menu-discord').addEventListener('click', () => { const id = shareFor; closeShareMenu(); if (id) window.api.exportDiscord(id); });
   document.addEventListener('click', (e) => { if (!e.target.closest('#share-menu')) closeShareMenu(); });
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeShareMenu(); });
+  $('#menu-share-one').addEventListener('click', () => { const id = shareFor; closeShareMenu(); if (id) copyShareLinks([id]); });
+  $('#menu-share-multi').addEventListener('click', () => { const id = shareFor; enterSelection(id); });
+  $('#select-all').addEventListener('click', () => {
+    if (!selecting) return;
+    const all = state.sounds.filter(isShareable).map((s) => s.id);
+    if (selecting.size === all.length) selecting.clear(); else all.forEach((id) => selecting.add(id));
+    updateSelectionUi();
+  });
+  $('#select-cancel').addEventListener('click', exitSelection);
+  $('#select-share').addEventListener('click', shareSelected);
+  $('#btn-import').addEventListener('click', () => openImport());
+  $('#import-cancel-1').addEventListener('click', closeImport);
+  $('#import-cancel-2').addEventListener('click', closeImport);
+  $('#import-review').addEventListener('click', reviewPasted);
+  $('#import-go').addEventListener('click', runImport);
+  window.api.onShareOpen((result) => openImport(result));
+  window.api.onShareProgress(({ done, total, name }) => {
+    if (done < total) $('#import-progress').textContent = `Importing ${done + 1} of ${total}: ${name}`;
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    closeShareMenu();
+    if (!$('#import-modal').hidden) closeImport(); else if (selecting) exitSelection();
+  });
   window.addEventListener('blur', closeShareMenu);
   $('#btn-extension-store').addEventListener('click', () => window.api.openExtensionStore());
   $('#btn-extension').addEventListener('click', () => window.api.setupExtension());

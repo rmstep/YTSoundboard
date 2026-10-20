@@ -7,6 +7,7 @@ const Store = require('./lib/store');
 const yt = require('./lib/ytdlp');
 const vbcable = require('./lib/vbcable');
 const { exportForDiscord, sanitize: sanitizeName } = require('./lib/discordExport');
+const share = require('./lib/share');
 const { startServer, PORT } = require('./lib/server');
 
 const SETTING_KEYS = ['micDeviceId', 'cableDeviceId', 'speakerDeviceId', 'micDeviceLabel', 'cableDeviceLabel',
@@ -183,6 +184,55 @@ function setupAutoUpdate() {
   setInterval(check, 6 * 60 * 60 * 1000);
 }
 
+// ---------- sharing: links that carry a recipe (video, times, thumbnail flag, title), never audio ----------
+let pendingShare = [];   // sounds from the last parsed link, waiting for the user to confirm
+let importing = false;
+
+const videoIdOf = (url) => { try { return new URL(yt.canonicalUrl(url)).searchParams.get('v'); } catch { return null; } };
+// Only sounds clipped from YouTube keep the recipe; sounds added from local files can't be shared as links.
+const isYouTubeSound = (s) => !!(s && s.source && s.source.url && videoIdOf(s.source.url));
+const toEntry = (s) => ({ id: videoIdOf(s.source.url), start: s.source.start, end: s.source.end, thumb: !!s.thumb, name: s.name });
+
+function parseForPreview(text) {
+  const { sounds, errors } = share.parseShare(text);
+  pendingShare = sounds;
+  const have = (e) => store.data.sounds.some((s) => isYouTubeSound(s) && videoIdOf(s.source.url) === e.id &&
+    Math.abs(s.source.start - e.start) < 0.06 && Math.abs(s.source.end - e.end) < 0.06);
+  return { errors, sounds: sounds.map((e) => ({ ...e, dup: have(e) })) };
+}
+
+// A link arrived (pasted, or opened from the website): show the review screen in the window.
+function openSharePreview(text) {
+  if (!win || win.isDestroyed()) return;
+  win.show(); win.focus();
+  send('share-open', parseForPreview(text));
+}
+
+async function runShareImport(indices) {
+  if (importing) return { added: [], failed: [{ name: '', error: 'An import is already running.' }] };
+  importing = true;
+  const picked = [...new Set(indices)].filter((i) => Number.isInteger(i) && i >= 0 && i < pendingShare.length).sort((a, b) => a - b).map((i) => pendingShare[i]);
+  const added = [], failed = [];
+  try {
+    for (let i = 0; i < picked.length; i++) {
+      const e = picked[i];
+      send('share-progress', { done: i, total: picked.length, name: e.name });
+      try {
+        await handleClip({ url: 'https://www.youtube.com/watch?v=' + e.id, start: e.start, end: e.end, name: e.name, key: '', thumbnail: e.thumb });
+        added.push(e.name);
+      } catch (err) {
+        failed.push({ name: e.name, error: err.code === 'age_restricted'
+          ? 'Age-restricted video: YouTube needs a signed-in account, so it can\'t be downloaded here. Clip it with the Chrome extension instead.'
+          : err.message });
+      }
+    }
+  } finally { importing = false; }
+  send('share-progress', { done: picked.length, total: picked.length });
+  return { added, failed };
+}
+
+const shareArg = (argv) => (argv || []).find((a) => /^ytsoundboard:/i.test(a));
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 820, minHeight: 560,
@@ -215,7 +265,13 @@ function createTray() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => { if (win) { win.show(); win.focus(); } });
+  app.on('second-instance', (_e, argv) => {
+    if (win) { win.show(); win.focus(); }
+    const link = shareArg(argv);   // a ytsoundboard:// link opened from the website
+    if (link) openSharePreview(link);
+  });
+  // Lets the "Open in YTSoundboard" button on the website launch the app. Only an installed copy registers itself.
+  if (app.isPackaged) app.setAsDefaultProtocolClient('ytsoundboard');
 
   app.whenReady().then(() => {
     session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media'));
@@ -345,6 +401,21 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('extension:store', () => shell.openExternal(EXTENSION_STORE_URL));
 
     // Share menu: save the sound as an MP3 Discord accepts, under its real name, and show it in Explorer.
+    // Copy a share link for the given sounds (YouTube ones only). Long lists are split into several links.
+    ipcMain.handle('share:links', (_e, ids) => {
+      const entries = (Array.isArray(ids) ? ids : []).map((id) => store.data.sounds.find((s) => s.id === id)).filter(isYouTubeSound).map(toEntry);
+      if (!entries.length) return { count: 0, links: 0 };
+      const links = share.buildLinks(entries);
+      clipboard.writeText(links.join('\n\n'));
+      return { count: entries.length, links: links.length };
+    });
+    ipcMain.handle('share:parse', (_e, text) => parseForPreview(String(text || '').slice(0, 200000)));
+    ipcMain.handle('share:run', (_e, indices) => runShareImport(Array.isArray(indices) ? indices : []));
+
+    // A link given on the command line when the app was started (e.g. launched from the website).
+    const startupLink = shareArg(process.argv);
+    if (startupLink) win.webContents.once('did-finish-load', () => setTimeout(() => openSharePreview(startupLink), 1200));
+
     ipcMain.handle('sound:export-discord', async (_e, id) => {
       const s = store.data.sounds.find((x) => x.id === id);
       if (!s) return;

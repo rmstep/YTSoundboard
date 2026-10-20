@@ -56,6 +56,46 @@ button.primary-inline { background: var(--ok); border-color: var(--ok); color: #
 .menu[hidden] { display: none; }
 .menu-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 9px 12px; }
 .menu-item:hover { background: var(--card); }
+.menu-item[hidden] { display: none; }
+
+/* ----- multi-select sharing (like picking photos to share) ----- */
+.card .pick { display: none; position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 50%;
+              border: 2px solid #fff; background: #0006; z-index: 2; place-items: center; font-size: 15px; font-weight: 700; color: #fff; }
+.grid.selecting .card { cursor: pointer; }
+.grid.selecting .card:not(.unshareable) .name { width: calc(100% - 36px); }   /* leave room for the checkmark */
+.grid.selecting .card > * { pointer-events: none; }
+.grid.selecting .card .pick { display: grid; }
+.card.picked { border-color: var(--accent); }
+.card.picked .pick { background: var(--accent); border-color: var(--accent); }
+.card.picked .pick::after { content: '✓'; }
+.grid.selecting .card.unshareable { opacity: .35; cursor: not-allowed; }
+.grid.selecting .card.unshareable .pick { display: none; }
+#select-bar { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 15; display: flex; align-items: center; gap: 10px;
+              padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px #000a; }
+#select-bar[hidden] { display: none; }
+#select-count { min-width: 150px; font-weight: 600; }
+.bar-btn { padding: 7px 14px; }
+.bar-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.bar-primary:disabled { opacity: .45; cursor: default; }
+
+/* ----- import dialog ----- */
+.overlay { position: fixed; inset: 0; z-index: 30; background: #000a; display: grid; place-items: center; }
+.overlay[hidden] { display: none; }
+.dialog { width: min(560px, 92vw); max-height: 84vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; }
+.dialog h3 { margin: 0 0 8px; }
+.dialog p { margin: 0 0 12px; }
+.dialog textarea { width: 100%; resize: vertical; font: 12px Consolas, monospace; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.dialog .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+#import-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.import-item { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+.import-item input { flex: none; }
+.import-item .meta { min-width: 0; flex: 1; }
+.import-item .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-item .sub { color: var(--dim); font-size: 12px; }
+.import-item.dup .sub { color: var(--warn); }
+#import-result { margin-top: 8px; font-size: 13px; }
+#import-result .okline { color: var(--ok); }
+#import-result .failline { color: #ff7b80; margin-top: 4px; }
 .card .del { color: var(--dim); padding: 6px 8px; }
 .card .del:hover { color: var(--danger); border-color: var(--danger); }
 .issue { color: var(--warn); font-size: 12px; }

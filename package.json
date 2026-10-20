@@ -9,7 +9,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node test/heat.test.js",
+    "test": "node test/heat.test.js && node test/share.test.js",
     "icons": "node assets/make-icons.js",
     "tools": "node scripts/fetch-tools.js",
     "extension-zip": "node scripts/pack-extension.js",

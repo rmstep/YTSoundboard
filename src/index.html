@@ -19,6 +19,7 @@
   <button id="btn-update" class="primary-inline" hidden>Update ready: restart</button>
   <button id="btn-stop" class="danger">Stop all</button>
   <button id="btn-add">+ Add file</button>
+  <button id="btn-import">Import link</button>
 </header>
 
 <main>
@@ -71,6 +72,38 @@
 
 <div id="share-menu" class="menu" role="menu" hidden>
   <button class="menu-item" id="menu-discord" role="menuitem">Show Files (upload to Discord)</button>
+  <button class="menu-item" id="menu-share-one" role="menuitem">Share this sound</button>
+  <button class="menu-item" id="menu-share-multi" role="menuitem">Share multiple sounds…</button>
+</div>
+
+<!-- Multi-select share bar, shown while picking sounds to share -->
+<div id="select-bar" hidden>
+  <span id="select-count">Select sounds to share</span>
+  <button id="select-all" class="bar-btn">Select all</button>
+  <button id="select-cancel" class="bar-btn">Cancel</button>
+  <button id="select-share" class="bar-btn bar-primary" disabled>Share</button>
+</div>
+
+<!-- Import shared sounds: paste a link, review, import -->
+<div id="import-modal" class="overlay" hidden>
+  <div class="dialog" role="dialog" aria-labelledby="import-title">
+    <h3 id="import-title">Import shared sounds</h3>
+
+    <div id="import-paste">
+      <p class="small">Paste a YTSoundboard share link. Nothing is downloaded until you confirm.</p>
+      <textarea id="import-text" rows="4" spellcheck="false" placeholder="https://rmstep.github.io/YTSoundboard-releases/clip/#c=…"></textarea>
+      <div class="actions"><button id="import-cancel-1">Cancel</button><button id="import-review" class="bar-primary">Review</button></div>
+    </div>
+
+    <div id="import-review-step" hidden>
+      <p class="small" id="import-summary"></p>
+      <div id="import-list"></div>
+      <div id="import-errors" class="issue"></div>
+      <div id="import-progress" class="small" hidden></div>
+      <div id="import-result" hidden></div>
+      <div class="actions"><button id="import-cancel-2">Cancel</button><button id="import-go" class="bar-primary">Import</button></div>
+    </div>
+  </div>
 </div>
 
 <div id="modal" hidden>
